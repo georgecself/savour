@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Savour — Ingredients</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <h1>Savour</h1>
+      <p>Global ingredient database</p>
+    </div>
+
+    <nav class="nav">
+      <a href="index.html">📅 Week</a>
+      <a href="index.html#recipes">🍳 Recipes</a>
+      <a href="ingredients.html" class="active">🥕 Ingredients</a>
+      <a href="index.html#shopping">🛒 Shopping</a>
+      <a href="index.html#pantry">📦 Pantry</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="section-head">
+      <div>
+        <h2>Ingredients</h2>
+        <p style="margin:5px 0 0;color:var(--muted)">
+          Shared global ingredients used by recipes and shopping.
+        </p>
+      </div>
+      <button class="btn primary" id="addIngredientBtn">＋ Add ingredient</button>
+    </div>
+
+    <div class="toolbar">
+      <input id="searchInput" type="search" placeholder="Search ingredients…">
+    </div>
+
+    <div class="card">
+      <div id="ingredientTable"></div>
+    </div>
+  </main>
+</div>
+
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Add ingredient</h2>
+
+    <div class="field">
+      <label for="ingredientName">Name</label>
+      <input id="ingredientName" placeholder="e.g. Avocado">
+    </div>
+
+    <div class="field">
+      <label for="ingredientCategory">Category</label>
+      <select id="ingredientCategory">
+        <option>Fruit & Veg</option>
+        <option>Meat</option>
+        <option>Fish</option>
+        <option>Dairy</option>
+        <option>Tinned & Dry</option>
+        <option>Herbs & Spices</option>
+        <option>Bakery</option>
+        <option>Frozen</option>
+        <option>Drinks</option>
+        <option>Other</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="ingredientUnit">Default unit</label>
+      <select id="ingredientUnit">
+        <option value="">None</option>
+        <option value="g">g</option>
+        <option value="kg">kg</option>
+        <option value="ml">ml</option>
+        <option value="l">l</option>
+        <option value="item">item</option>
+        <option value="clove">clove</option>
+        <option value="tin">tin</option>
+        <option value="pack">pack</option>
+        <option value="slice">slice</option>
+        <option value="tbsp">tbsp</option>
+        <option value="tsp">tsp</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancel</button>
+      <button class="btn primary" id="saveBtn">Save ingredient</button>
+    </div>
+  </div>
+</div>
+
+<div id="status" class="status">Connecting to Supabase…</div>
+
+<script src="js/supabase.js"></script>
+<script src="js/ingredients.js"></script>
+</body>
+</html>
