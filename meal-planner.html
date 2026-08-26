@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meal Planner</title>
+<style>
+:root {
+  --bg: #f5f5f3;
+  --card: #ffffff;
+  --text: #20211f;
+  --muted: #73756f;
+  --line: #e3e3de;
+  --accent: #5d6b52;
+  --accent-dark: #46533e;
+  --accent-soft: #e9eee5;
+  --danger: #a34d4d;
+  --shadow: 0 8px 28px rgba(0,0,0,.06);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+.app {
+  max-width: 1150px;
+  margin: auto;
+  padding: 24px;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.brand h1 { margin: 0; font-size: 28px; }
+.brand p { margin: 5px 0 0; color: var(--muted); }
+.nav {
+  display: flex;
+  gap: 6px;
+  background: var(--card);
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.nav button {
+  border: 0;
+  background: transparent;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+.nav button.active {
+  background: var(--accent);
+  color: white;
+}
+.view { display: none; }
+.view.active { display: block; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 16px;
+}
+.section-head h2 { margin: 0; font-size: 22px; }
+.btn {
+  border: 1px solid var(--line);
+  background: white;
+  padding: 10px 15px;
+  border-radius: 10px;
+  color: var(--text);
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.btn.primary:hover { background: var(--accent-dark); }
+.btn.danger { color: var(--danger); }
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+.day {
+  min-width: 0;
+  padding: 14px;
+}
+.day-head {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 10px;
+}
+.day-name { font-weight: 700; }
+.day-date { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.meal-slot {
+  border: 1px dashed #d1d2cc;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 9px;
+  min-height: 68px;
+  background: #fcfcfb;
+}
+.meal-slot.empty {
+  color: #999b94;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.slot-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.meal-name { font-size: 13px; font-weight: 600; }
+.remove-meal {
+  border: 0;
+  background: transparent;
+  color: #aaa;
+  float: right;
+  padding: 0 2px;
+}
+
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.recipe-card { padding: 18px; }
+.recipe-card h3 { margin: 0 0 6px; }
+.meta { color: var(--muted); font-size: 13px; }
+.tags { display:flex; flex-wrap:wrap; gap:5px; margin: 12px 0; }
+.tag {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.recipe-card ul {
+  padding-left: 18px;
+  color: #4f514c;
+  font-size: 13px;
+}
+.recipe-actions { display:flex; gap:7px; margin-top: 15px; }
+
+.shopping-layout {
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  gap: 18px;
+}
+.shopping-card { padding: 20px; }
+.category { margin-bottom: 20px; }
+.category h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.shop-item {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0f0ed;
+}
+.shop-item input { width: 17px; height:17px; accent-color: var(--accent); }
+.shop-item.checked span { text-decoration: line-through; color: #aaa; }
+.pantry-list { padding: 18px; }
+.pantry-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid var(--line);
+  padding: 10px 0;
+}
+.add-row { display:flex; gap:8px; margin-bottom:15px; }
+.add-row input {
+  flex:1;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px;
+}
+.empty-state {
+  padding: 35px;
+  text-align:center;
+  color:var(--muted);
+}
+
+.modal-backdrop {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.38);
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  z-index:10;
+}
+.modal-backdrop.open { display:flex; }
+.modal {
+  width:min(620px, 100%);
+  max-height:90vh;
+  overflow:auto;
+  background:white;
+  border-radius:20px;
+  padding:24px;
+}
+.modal h2 { margin-top:0; }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.field { margin-bottom:13px; }
+.field.full { grid-column:1 / -1; }
+.field label {
+  display:block;
+  font-size:12px;
+  font-weight:600;
+  margin-bottom:5px;
+}
+.field input, .field textarea, .field select {
+  width:100%;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:white;
+}
+.field textarea { min-height:110px; resize:vertical; }
+.modal-actions {
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:15px;
+}
+.meal-picker {
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:8px;
+}
+.meal-picker button {
+  border:1px solid var(--line);
+  background:white;
+  border-radius:10px;
+  padding:12px 8px;
+}
+.meal-picker button:hover { border-color:var(--accent); background:var(--accent-soft); }
+
+@media (max-width: 900px) {
+  .week-grid { grid-template-columns: repeat(4, 1fr); }
+  .recipe-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 650px) {
+  .app { padding: 15px; }
+  header { align-items: flex-start; flex-direction:column; }
+  .nav { width:100%; overflow:auto; }
+  .nav button { flex:1; white-space:nowrap; }
+  .week-grid { grid-template-columns: 1fr; }
+  .recipe-grid, .shopping-layout { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns:1fr; }
+  .field.full { grid-column:auto; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>Meal Planner</h1>
+    <p>Plan your week. Know what to buy. Waste less.</p>
+  </div>
+  <nav class="nav">
+    <button class="active" data-view="week">📅 Week</button>
+    <button data-view="recipes">🍳 Recipes</button>
+    <button data-view="shopping">🛒 Shopping</button>
+    <button data-view="pantry">📦 Pantry</button>
+  </nav>
+</header>
+
+<main>
+<section id="week" class="view active">
+  <div class="section-head">
+    <h2>This Week</h2>
+    <button class="btn primary" onclick="clearWeek()">Clear week</button>
+  </div>
+  <div id="weekGrid" class="week-grid"></div>
+</section>
+
+<section id="recipes" class="view">
+  <div class="section-head">
+    <h2>Recipes</h2>
+    <button class="btn primary" onclick="openRecipeModal()">＋ Add recipe</button>
+  </div>
+  <div id="recipeGrid" class="recipe-grid"></div>
+</section>
+
+<section id="shopping" class="view">
+  <div class="section-head">
+    <h2>Shopping List</h2>
+    <button class="btn" onclick="clearChecked()">Clear checked</button>
+  </div>
+  <div class="shopping-layout">
+    <div id="shoppingList" class="card shopping-card"></div>
+    <div class="card pantry-list">
+      <h3>Quick add to pantry</h3>
+      <div class="add-row">
+        <input id="pantryQuickInput" placeholder="e.g. rice">
+        <button class="btn primary" onclick="quickPantry()">Add</button>
+      </div>
+      <p class="meta">Items in your pantry are automatically excluded from the shopping list.</p>
+    </div>
+  </div>
+</section>
+
+<section id="pantry" class="view">
+  <div class="section-head">
+    <h2>Pantry</h2>
+  </div>
+  <div class="card pantry-list">
+    <div class="add-row">
+      <input id="pantryInput" placeholder="Add something you already have...">
+      <button class="btn primary" onclick="addPantry()">Add</button>
+    </div>
+    <div id="pantryItems"></div>
+  </div>
+</section>
+</main>
+</div>
+
+<div id="modalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+  <div id="modal" class="modal"></div>
+</div>
+
+<script>
+const STORAGE_KEY = "simpleMealPlannerV1";
+
+const defaultRecipes = [
+  {
+    id: crypto.randomUUID(), name:"Spaghetti Bolognese", servings:4, time:35,
+    tags:["Italian","Freezable"], ingredients:[
+      ["500g","beef mince","Meat"],["1","onion","Fruit & Veg"],
+      ["2","garlic cloves","Fruit & Veg"],["400g","chopped tomatoes","Tinned & Dry"],
+      ["500g","spaghetti","Tinned & Dry"],["50g","parmesan","Dairy"]
+    ]
+  },
+  {
+    id: crypto.randomUUID(), name:"Chicken Fajitas", servings:2, time:25,
+    tags:["Mexican","Quick"], ingredients:[
+      ["400g","chicken breast","Meat"],["1","onion","Fruit & Veg"],
+      ["2","peppers","Fruit & Veg"],["6","tortilla wraps","Tinned & Dry"],
+      ["100g","cheese","Dairy"],["1","fajita seasoning","Tinned & Dry"]
+    ]
+  },
+  {
+    id: crypto.randomUUID(), name:"Sausage Traybake", servings:2, time:40,
+    tags:["Easy","One-pan"], ingredients:[
+      ["6","sausages","Meat"],["500g","potatoes","Fruit & Veg"],
+      ["2","peppers","Fruit & Veg"],["1","red onion","Fruit & Veg"],
+      ["1 tbsp","olive oil","Tinned & Dry"]
+    ]
+  },
+  {
+    id: crypto.randomUUID(), name:"Pesto Pasta", servings:2, time:15,
+    tags:["Quick","Vegetarian"], ingredients:[
+      ["250g","pasta","Tinned & Dry"],["120g","pesto","Tinned & Dry"],
+      ["100g","cherry tomatoes","Fruit & Veg"],["40g","parmesan","Dairy"]
+    ]
+  },
+  {
+    id: crypto.randomUUID(), name:"Chicken Stir Fry", servings:2, time:20,
+    tags:["Asian","Quick"], ingredients:[
+      ["300g","chicken breast","Meat"],["250g","rice","Tinned & Dry"],
+      ["1","pepper","Fruit & Veg"],["1","onion","Fruit & Veg"],
+      ["150g","stir fry vegetables","Fruit & Veg"],["3 tbsp","soy sauce","Tinned & Dry"]
+    ]
+  },
+  {
+    id: crypto.randomUUID(), name:"Jacket Potato & Beans", servings:1, time:15,
+    tags:["Cheap","Easy"], ingredients:[
+      ["1","large potato","Fruit & Veg"],["1 tin","baked beans","Tinned & Dry"],
+      ["50g","cheese","Dairy"]
+    ]
+  }
+];
+
+let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+if (!data) {
+  data = {
+    recipes: defaultRecipes,
+    week: {},
+    pantry: [],
+    checked: []
+  };
+  save();
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+
+const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const mealTypes = ["Breakfast","Lunch","Dinner"];
+
+function renderWeek() {
+  const grid = document.getElementById("weekGrid");
+  grid.innerHTML = days.map((day, di) => {
+    const key = day;
+    const meals = data.week[key] || {};
+    return `<div class="card day">
+      <div class="day-head">
+        <div class="day-name">${day}</div>
+        <div class="day-date">${getDateForDay(di)}</div>
+      </div>
+      ${mealTypes.map(type => {
+        const id = meals[type];
+        const recipe = data.recipes.find(r => r.id === id);
+        if (recipe) {
+          return `<div class="meal-slot">
+            <button class="remove-meal" onclick="removeMeal('${key}','${type}')">×</button>
+            <div class="slot-label">${type}</div>
+            <div class="meal-name">${esc(recipe.name)}</div>
+          </div>`;
+        }
+        return `<button class="meal-slot empty" onclick="openMealPicker('${key}','${type}')">
+          <span>＋ ${type}</span>
+        </button>`;
+      }).join("")}
+    </div>`;
+  }).join("");
+}
+
+function getDateForDay(index) {
+  const now = new Date();
+  const monday = new Date(now);
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  monday.setDate(now.getDate() + diff + index);
+  return monday.toLocaleDateString(undefined,{day:"numeric",month:"short"});
+}
+
+function renderRecipes() {
+  const grid = document.getElementById("recipeGrid");
+  grid.innerHTML = data.recipes.map(r => `
+    <div class="card recipe-card">
+      <h3>${esc(r.name)}</h3>
+      <div class="meta">Serves ${r.servings} · ${r.time} mins</div>
+      <div class="tags">${r.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      <ul>${r.ingredients.slice(0,5).map(i => `<li>${esc(i[0])} ${esc(i[1])}</li>`).join("")}${r.ingredients.length>5 ? "<li>…</li>":""}</ul>
+      <div class="recipe-actions">
+        <button class="btn" onclick="openRecipeModal('${r.id}')">Edit</button>
+        <button class="btn danger" onclick="deleteRecipe('${r.id}')">Delete</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function buildShopping() {
+  const totals = {};
+  Object.values(data.week).forEach(day => {
+    Object.values(day || {}).forEach(recipeId => {
+      const recipe = data.recipes.find(r => r.id === recipeId);
+      if (!recipe) return;
+      recipe.ingredients.forEach(([qty,name,category]) => {
+        const key = name.trim().toLowerCase();
+        if (!totals[key]) totals[key] = {name, qtys:[], category};
+        totals[key].qtys.push(qty);
+      });
+    });
+  });
+
+  const pantry = data.pantry.map(x => x.toLowerCase());
+  const filtered = Object.entries(totals).filter(([key,obj]) =>
+    !pantry.some(p => key === p || key.includes(p) || p.includes(key))
+  );
+
+  const groups = {};
+  filtered.forEach(([key,obj]) => {
+    if (!groups[obj.category]) groups[obj.category] = [];
+    groups[obj.category].push({key, ...obj});
+  });
+
+  const list = document.getElementById("shoppingList");
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state">
+      <strong>Your shopping list is empty.</strong><br>
+      Add some meals to your week and ingredients will appear here.
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = Object.entries(groups).map(([category,items]) => `
+    <div class="category">
+      <h3>${esc(category)}</h3>
+      ${items.map(item => {
+        const checked = data.checked.includes(item.key);
+        return `<label class="shop-item ${checked ? "checked":""}">
+          <input type="checkbox" ${checked ? "checked":""} onchange="toggleChecked('${esc(item.key)}',this.checked)">
+          <span>${esc(item.qtys.join(" + "))} ${esc(item.name)}</span>
+        </label>`;
+      }).join("")}
+    </div>
+  `).join("");
+}
+
+function renderPantry() {
+  const el = document.getElementById("pantryItems");
+  if (!data.pantry.length) {
+    el.innerHTML = `<div class="empty-state">Nothing in your pantry yet.</div>`;
+    return;
+  }
+  el.innerHTML = data.pantry.map((item,i) => `
+    <div class="pantry-row">
+      <span>${esc(item)}</span>
+      <button class="btn danger" onclick="removePantry(${i})">Remove</button>
+    </div>
+  `).join("");
+}
+
+function renderAll() {
+  renderWeek(); renderRecipes(); buildShopping(); renderPantry();
+}
+
+function openMealPicker(day,type) {
+  const options = data.recipes.map(r =>
+    `<button onclick="chooseMeal('${day}','${type}','${r.id}')">${esc(r.name)}<br><small>${r.time} mins</small></button>`
+  ).join("");
+  document.getElementById("modal").innerHTML = `
+    <h2>Add ${type}</h2>
+    <p class="meta">${day}</p>
+    <div class="meal-picker">${options || "<p>No recipes yet.</p>"}</div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button></div>
+  `;
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function chooseMeal(day,type,id) {
+  if (!data.week[day]) data.week[day] = {};
+  data.week[day][type] = id;
+  save(); closeModal(); renderAll();
+}
+
+function removeMeal(day,type) {
+  if (data.week[day]) delete data.week[day][type];
+  save(); renderAll();
+}
+
+function openRecipeModal(id=null) {
+  const r = id ? data.recipes.find(x => x.id === id) : null;
+  document.getElementById("modal").innerHTML = `
+    <h2>${r ? "Edit recipe" : "Add recipe"}</h2>
+    <div class="form-grid">
+      <div class="field full"><label>Name</label><input id="rName" value="${r ? esc(r.name):""}" placeholder="e.g. Chilli con carne"></div>
+      <div class="field"><label>Servings</label><input id="rServings" type="number" min="1" value="${r ? r.servings:2}"></div>
+      <div class="field"><label>Cooking time (minutes)</label><input id="rTime" type="number" min="1" value="${r ? r.time:30}"></div>
+      <div class="field full"><label>Tags</label><input id="rTags" value="${r ? esc(r.tags.join(", ")): ""}" placeholder="Quick, Cheap, Vegetarian"></div>
+      <div class="field full">
+        <label>Ingredients — one per line: quantity | ingredient | category</label>
+        <textarea id="rIngredients" placeholder="500g | beef mince | Meat">${r ? r.ingredients.map(x=>x.join(" | ")).join("\\n"):""}</textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveRecipe('${r ? r.id:""}')">Save recipe</button>
+    </div>
+  `;
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function saveRecipe(id) {
+  const name = document.getElementById("rName").value.trim();
+  if (!name) return alert("Please give the recipe a name.");
+
+  const ingredients = document.getElementById("rIngredients").value.split("\n")
+    .map(line => line.split("|").map(x=>x.trim()))
+    .filter(x => x[0] && x[1])
+    .map(x => [x[0], x[1], x[2] || "Other"]);
+
+  const recipe = {
+    id: id || crypto.randomUUID(),
+    name,
+    servings: Number(document.getElementById("rServings").value) || 2,
+    time: Number(document.getElementById("rTime").value) || 30,
+    tags: document.getElementById("rTags").value.split(",").map(x=>x.trim()).filter(Boolean),
+    ingredients
+  };
+
+  if (id) {
+    const index = data.recipes.findIndex(r => r.id === id);
+    data.recipes[index] = recipe;
+  } else data.recipes.push(recipe);
+
+  save(); closeModal(); renderAll();
+}
+
+function deleteRecipe(id) {
+  if (!confirm("Delete this recipe?")) return;
+  data.recipes = data.recipes.filter(r => r.id !== id);
+  Object.values(data.week).forEach(day => {
+    Object.keys(day).forEach(type => { if(day[type] === id) delete day[type]; });
+  });
+  save(); renderAll();
+}
+
+function addPantry() {
+  const input = document.getElementById("pantryInput");
+  addPantryValue(input);
+}
+function quickPantry() {
+  const input = document.getElementById("pantryQuickInput");
+  addPantryValue(input);
+}
+function addPantryValue(input) {
+  const value = input.value.trim().toLowerCase();
+  if (!value) return;
+  if (!data.pantry.includes(value)) data.pantry.push(value);
+  input.value = "";
+  save(); renderAll();
+}
+function removePantry(i) {
+  data.pantry.splice(i,1);
+  save(); renderAll();
+}
+
+function toggleChecked(key, checked) {
+  if (checked && !data.checked.includes(key)) data.checked.push(key);
+  if (!checked) data.checked = data.checked.filter(x=>x!==key);
+  save(); buildShopping();
+}
+function clearChecked() {
+  data.checked = [];
+  save(); buildShopping();
+}
+function clearWeek() {
+  if (!confirm("Clear all meals from this week?")) return;
+  data.week = {};
+  data.checked = [];
+  save(); renderAll();
+}
+
+function closeModal() {
+  document.getElementById("modalBackdrop").classList.remove("open");
+}
+
+document.querySelectorAll(".nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.view).classList.add("active");
+  });
+});
+
+document.getElementById("pantryInput").addEventListener("keydown", e => {
+  if(e.key==="Enter") addPantry();
+});
+document.getElementById("pantryQuickInput").addEventListener("keydown", e => {
+  if(e.key==="Enter") quickPantry();
+});
+
+renderAll();
+</script>
+</body>
+</html>
