@@ -347,7 +347,8 @@ header {
 </div>
 
 <script>
-const STORAGE_KEY = "simpleMealPlannerV1";
+const SUPABASE_URL = "https://mdmcqodaekzdomxzjnfz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9zPAcpqSza9GYjMOGaT1Eg_AFQQXaxt";
 
 const defaultRecipes = [
   {
@@ -398,20 +399,55 @@ const defaultRecipes = [
   }
 ];
 
-let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-if (!data) {
-  data = {
-    recipes: defaultRecipes,
-    week: {},
-    pantry: [],
-    checked: []
-  };
-  save();
+let data = { recipes: [], week: {}, pantry: [], checked: [] };
+
+async function dbRequest(table, options={}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}${options.query || ""}`, {
+    method: options.method || "GET",
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: options.prefer || "return=representation" },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body)
+  });
+  if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
 }
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+async function findIngredient(name) {
+  const rows = await dbRequest("ingredients", {query:`?select=id,name,category,default_unit&name=ilike.*${encodeURIComponent(name)}*&limit=1`});
+  return rows[0] || null;
 }
+
+async function loadRecipes() {
+  try {
+    const recipes = await dbRequest("recipes", {query:"?select=id,name,description,servings,cooking_time_minutes,instructions&order=name.asc"});
+    let ri=[];
+    if (recipes.length) {
+      const ids=recipes.map(r=>r.id).join(",");
+      ri=await dbRequest("recipe_ingredients", {query:`?select=recipe_id,quantity,unit,sort_order,ingredients(name,category)&recipe_id=in.(${ids})&order=sort_order.asc`});
+    }
+    data.recipes=recipes.map(r=>({id:r.id,name:r.name,description:r.description||"",servings:r.servings||2,time:r.cooking_time_minutes||30,tags:[],ingredients:ri.filter(x=>x.recipe_id===r.id).map(x=>[x.quantity??"",x.ingredients?.name||"",x.ingredients?.category||"Other",x.unit||""])}));
+    renderAll(); setDbStatus("✓ Connected to Supabase");
+  } catch(e) { console.error(e); setDbStatus("⚠ Supabase connection failed"); alert("Savour could not load recipes from Supabase. Open the browser console for details."); }
+}
+
+function setDbStatus(text) {
+  let el=document.getElementById("dbStatus");
+  if(!el){el=document.createElement("div");el.id="dbStatus";el.style.cssText="position:fixed;bottom:14px;right:14px;padding:8px 12px;border-radius:999px;background:#e9eee5;color:#46533e;font-size:12px;z-index:20;box-shadow:0 3px 15px rgba(0,0,0,.08)";document.body.appendChild(el);}
+  el.textContent=text;
+}
+
+async function saveRecipeToDb(recipe,id=null) {
+  const payload={name:recipe.name,description:null,servings:recipe.servings,cooking_time_minutes:recipe.time,instructions:null,user_id:null};
+  let recipeId=id;
+  if(id) await dbRequest("recipes",{method:"PATCH",query:`?id=eq.${id}`,body:payload});
+  else recipeId=(await dbRequest("recipes",{method:"POST",body:payload}))[0].id;
+  if(id) await dbRequest("recipe_ingredients",{method:"DELETE",query:`?recipe_id=eq.${id}`,prefer:"return=minimal"});
+  const rows=[];
+  for(let i=0;i<recipe.ingredients.length;i++){const [qty,name,category,unit]=recipe.ingredients[i]; if(!name) continue; const ing=await findIngredient(name); if(!ing) throw new Error(`\"${name}\" is not in the global ingredient database yet.`); rows.push({recipe_id:recipeId,ingredient_id:ing.id,quantity:qty===""?null:Number(qty)||null,unit:unit||ing.default_unit||null,sort_order:i});}
+  if(rows.length) await dbRequest("recipe_ingredients",{method:"POST",body:rows});
+}
+
+function save() {}
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -575,8 +611,8 @@ function openRecipeModal(id=null) {
       <div class="field"><label>Cooking time (minutes)</label><input id="rTime" type="number" min="1" value="${r ? r.time:30}"></div>
       <div class="field full"><label>Tags</label><input id="rTags" value="${r ? esc(r.tags.join(", ")): ""}" placeholder="Quick, Cheap, Vegetarian"></div>
       <div class="field full">
-        <label>Ingredients — one per line: quantity | ingredient | category</label>
-        <textarea id="rIngredients" placeholder="500g | beef mince | Meat">${r ? r.ingredients.map(x=>x.join(" | ")).join("\\n"):""}</textarea>
+        <label>Ingredients — one per line: quantity | ingredient | category | unit</label>
+        <textarea id="rIngredients" placeholder="500 | Beef mince | Meat | g">${r ? r.ingredients.map(x=>x.join(" | ")).join("\\n"):""}</textarea>
       </div>
     </div>
     <div class="modal-actions">
@@ -587,39 +623,18 @@ function openRecipeModal(id=null) {
   document.getElementById("modalBackdrop").classList.add("open");
 }
 
-function saveRecipe(id) {
-  const name = document.getElementById("rName").value.trim();
-  if (!name) return alert("Please give the recipe a name.");
-
-  const ingredients = document.getElementById("rIngredients").value.split("\n")
-    .map(line => line.split("|").map(x=>x.trim()))
-    .filter(x => x[0] && x[1])
-    .map(x => [x[0], x[1], x[2] || "Other"]);
-
-  const recipe = {
-    id: id || crypto.randomUUID(),
-    name,
-    servings: Number(document.getElementById("rServings").value) || 2,
-    time: Number(document.getElementById("rTime").value) || 30,
-    tags: document.getElementById("rTags").value.split(",").map(x=>x.trim()).filter(Boolean),
-    ingredients
-  };
-
-  if (id) {
-    const index = data.recipes.findIndex(r => r.id === id);
-    data.recipes[index] = recipe;
-  } else data.recipes.push(recipe);
-
-  save(); closeModal(); renderAll();
+async function saveRecipe(id) {
+  const name=document.getElementById("rName").value.trim(); if(!name) return alert("Please give the recipe a name.");
+  const ingredients=document.getElementById("rIngredients").value.split("\n").map(line=>line.split("|").map(x=>x.trim())).filter(x=>x[0]&&x[1]).map(x=>[x[0],x[1],x[2]||"Other",x[3]||""]);
+  const recipe={name,servings:Number(document.getElementById("rServings").value)||2,time:Number(document.getElementById("rTime").value)||30,ingredients};
+  const button=document.querySelector("#modal .btn.primary"); if(button){button.disabled=true;button.textContent="Saving…";}
+  try { await saveRecipeToDb(recipe,id||null); closeModal(); await loadRecipes(); } catch(e){console.error(e);alert(e.message||"Could not save recipe.");if(button){button.disabled=false;button.textContent="Save recipe";}}
 }
 
-function deleteRecipe(id) {
-  if (!confirm("Delete this recipe?")) return;
-  data.recipes = data.recipes.filter(r => r.id !== id);
-  Object.values(data.week).forEach(day => {
-    Object.keys(day).forEach(type => { if(day[type] === id) delete day[type]; });
-  });
-  save(); renderAll();
+async function deleteRecipe(id) {
+  if(!confirm("Delete this recipe?")) return;
+  try { await dbRequest("recipes",{method:"DELETE",query:`?id=eq.${id}`,prefer:"return=minimal"}); await loadRecipes(); }
+  catch(e){console.error(e);alert("Could not delete the recipe.");}
 }
 
 function addPantry() {
@@ -678,7 +693,9 @@ document.getElementById("pantryQuickInput").addEventListener("keydown", e => {
   if(e.key==="Enter") quickPantry();
 });
 
+setDbStatus("Connecting to Supabase…");
 renderAll();
+loadRecipes();
 </script>
 </body>
 </html>
