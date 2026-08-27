@@ -6,14 +6,19 @@
 <title>Savour — Foods</title>
 <link rel="stylesheet" href="css/style.css">
 <style>
-  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:18px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
   .toolbar input { flex:1; max-width:320px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .tab-row { display:flex; gap:8px; margin-bottom:18px; }
+  .tab-btn { border:1px solid var(--line); background:white; border-radius:999px; padding:8px 16px; cursor:pointer; font-size:13px; }
+  .tab-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
   .table-card { padding:0; overflow-x:auto; }
-  .food-table { width:100%; border-collapse:collapse; min-width:820px; }
+  .food-table { width:100%; border-collapse:collapse; min-width:860px; }
   .food-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
   .food-table td { padding:12px 14px; border-bottom:1px solid #f0f0ed; font-size:14px; white-space:nowrap; }
   .food-table td.wrap { white-space:normal; }
   .food-table .num { color:#5a5c56; }
+  .food-thumb { width:32px; height:32px; border-radius:8px; object-fit:cover; vertical-align:middle; margin-right:8px; background:#f0f0ed; }
+  .owner-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; }
   .actions { display:flex; gap:7px; }
   .empty-state { color:var(--muted); padding:30px; text-align:center; }
 
@@ -51,10 +56,20 @@
 
 <main>
 <section id="foods" class="view active">
-  <div class="section-head"><h2>Foods</h2><button class="btn primary" id="addFoodBtn">＋ Add food</button></div>
+  <div class="section-head">
+    <h2>Foods</h2>
+    <div style="display:flex; gap:8px;">
+      <a class="btn" href="foods-import.html" id="importLink" style="display:none;">⬆ Bulk import</a>
+      <button class="btn primary" id="addFoodBtn">＋ Add food</button>
+    </div>
+  </div>
   <p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
     Individual items you buy and eat as-is — protein bars, yoghurt, bananas — as opposed to recipe ingredients.
   </p>
+  <div class="tab-row">
+    <button class="tab-btn active" id="tabMine" onclick="switchTab('mine')">My Foods</button>
+    <button class="tab-btn" id="tabLibrary" onclick="switchTab('library')">📚 Library</button>
+  </div>
   <div class="toolbar">
     <input id="searchInput" placeholder="Search foods…">
   </div>
@@ -119,6 +134,11 @@
       <div class="field">
         <label>Fat (g)</label>
         <input id="foodFat" type="number" step="any" min="0">
+      </div>
+
+      <div class="field full">
+        <label>Photo URL</label>
+        <input id="foodImageUrl" placeholder="Optional — link to an image already online">
       </div>
 
       <div class="section-label">Shopping</div>
