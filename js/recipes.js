@@ -36,7 +36,7 @@ async function loadIngredients() {
 
 async function loadRecipes() {
   const recipes = await supabaseRequest("recipes", {
-    query: "?select=id,name,description,servings,cooking_time_minutes,instructions&order=name.asc"
+    query: `?select=id,name,description,servings,cooking_time_minutes,instructions&user_id=eq.${window.currentUserId}&order=name.asc`
   });
 
   const recipeIds = recipes.map(r => r.id);
@@ -341,7 +341,7 @@ async function saveRecipe() {
         await supabaseRequest("recipe_ingredients", { method: "POST", body: rows.map(r => ({ ...r, recipe_id: id })) });
       }
     } else {
-      const created = (await supabaseRequest("recipes", { method: "POST", body: { ...recipePayload, user_id: null } }))[0];
+      const created = (await supabaseRequest("recipes", { method: "POST", body: { ...recipePayload, user_id: window.currentUserId } }))[0];
       if (rows.length) {
         try {
           await supabaseRequest("recipe_ingredients", { method: "POST", body: rows.map(r => ({ ...r, recipe_id: created.id })) });
@@ -364,4 +364,8 @@ async function saveRecipe() {
   }
 }
 
-loadAll();
+(async function init() {
+  const uid = await window.authReady;
+  if (!uid) return; // redirecting to login
+  await loadAll();
+})();
