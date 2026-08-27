@@ -6,7 +6,7 @@
 <title>Savour</title>
 <link rel="stylesheet" href="css/style.css">
 <style>
-  .week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; }
+  .week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; align-items:start; }
   .day { min-width:0; padding:14px; display:flex; flex-direction:column; }
   .day-head { padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:10px; }
   .day-name { font-weight:700; }
@@ -48,6 +48,9 @@
   .add-option:hover { background:var(--accent-soft); }
   .add-option .sub { color:var(--muted); font-size:11px; margin-top:1px; }
   .add-options .empty-state { padding:16px; font-size:13px; }
+
+  .selection-banner { background:var(--accent-soft); color:var(--accent-dark); border-radius:10px; padding:10px 14px; font-size:14px; font-weight:600; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+  .selection-banner button { border:0; background:transparent; color:var(--accent-dark); font-size:12px; text-decoration:underline; cursor:pointer; }
 
   @media(max-width:900px){.week-grid{grid-template-columns:repeat(4,1fr)}}
   @media(max-width:650px){.week-grid{grid-template-columns:1fr}.tag-quantity-row{grid-template-columns:1fr}}
@@ -98,6 +101,7 @@ let loading = false;
 let addModalIso = null;
 let addModalDayName = null;
 let addType = "recipe";
+let pendingAddSelection = null; // { id, name, sub } once picked, before confirming
 
 const dayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const tagOrder = ["Breakfast","Lunch","Dinner","Snack"];
@@ -222,58 +226,79 @@ function renderWeek() {
   }).join("");
 }
 
-// ---------- Add-item modal ----------
+// ---------- Add-item modal (pick first, THEN tag/quantity, THEN confirm) ----------
 
 function openAddModal(iso, dayName) {
   addModalIso = iso;
   addModalDayName = dayName;
   addType = "recipe";
-
-  document.getElementById("modal").innerHTML = `
-    <h2>Add to ${dayName}</h2>
-    <p class="meta">Pick a recipe or food, tag it, then choose it from the list below to add it.</p>
-
-    <div class="type-toggle">
-      <button type="button" class="type-btn active" id="typeBtnRecipe" onclick="switchAddType('recipe')">🍳 Recipe</button>
-      <button type="button" class="type-btn" id="typeBtnFood" onclick="switchAddType('food')">🥫 Food</button>
-    </div>
-
-    <div class="tag-quantity-row">
-      <div class="field">
-        <label>Tag</label>
-        <input id="addTag" list="tagOptions" placeholder="e.g. Breakfast">
-        <datalist id="tagOptions">
-          <option value="Breakfast"><option value="Lunch"><option value="Dinner"><option value="Snack">
-        </datalist>
-      </div>
-      <div class="field">
-        <label>Quantity</label>
-        <input id="addQuantity" type="number" step="any" min="0" value="1">
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Search</label>
-      <input id="addSearch" placeholder="Type to search…" oninput="renderAddOptions()">
-    </div>
-
-    <div id="addOptions" class="add-options"></div>
-
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal()">Close</button>
-    </div>
-  `;
-
-  renderAddOptions();
+  pendingAddSelection = null;
+  renderAddModal();
   document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function renderAddModal() {
+  if (!pendingAddSelection) {
+    document.getElementById("modal").innerHTML = `
+      <h2>Add to ${addModalDayName}</h2>
+      <p class="meta">Pick a recipe or food — you'll set the tag and quantity next.</p>
+
+      <div class="type-toggle">
+        <button type="button" class="type-btn ${addType === "recipe" ? "active" : ""}" onclick="switchAddType('recipe')">🍳 Recipe</button>
+        <button type="button" class="type-btn ${addType === "food" ? "active" : ""}" onclick="switchAddType('food')">🥫 Food</button>
+      </div>
+
+      <div class="field">
+        <label>Search</label>
+        <input id="addSearch" placeholder="Type to search…" oninput="renderAddOptions()">
+      </div>
+
+      <div id="addOptions" class="add-options"></div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Close</button>
+      </div>
+    `;
+    renderAddOptions();
+  } else {
+    document.getElementById("modal").innerHTML = `
+      <h2>Add to ${addModalDayName}</h2>
+      <div class="selection-banner">
+        <span>${addType === "recipe" ? "🍳" : "🥫"} ${esc(pendingAddSelection.name)}</span>
+        <button onclick="backToAddPicker()">Change</button>
+      </div>
+
+      <div class="tag-quantity-row">
+        <div class="field">
+          <label>Tag</label>
+          <input id="addTag" list="tagOptions" placeholder="e.g. Breakfast">
+          <datalist id="tagOptions">
+            <option value="Breakfast"><option value="Lunch"><option value="Dinner"><option value="Snack">
+          </datalist>
+        </div>
+        <div class="field">
+          <label>Quantity</label>
+          <input id="addQuantity" type="number" step="any" min="0" value="1">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="backToAddPicker()">Back</button>
+        <button class="btn primary" onclick="confirmAddItem()">Add</button>
+      </div>
+    `;
+  }
 }
 
 function switchAddType(type) {
   addType = type;
-  document.getElementById("typeBtnRecipe").classList.toggle("active", type === "recipe");
-  document.getElementById("typeBtnFood").classList.toggle("active", type === "food");
-  document.getElementById("addSearch").value = "";
-  renderAddOptions();
+  pendingAddSelection = null;
+  renderAddModal();
+}
+
+function backToAddPicker() {
+  pendingAddSelection = null;
+  renderAddModal();
 }
 
 function renderAddOptions() {
@@ -289,26 +314,50 @@ function renderAddOptions() {
   }
 
   box.innerHTML = filtered.map(x => `
-    <div class="add-option" onclick="confirmAddItem('${x.id}')">
+    <div class="add-option" onclick="selectAddItem('${x.id}')">
       <div>${esc(x.name)}</div>
       <div class="sub">${addType === "recipe" ? (x.cooking_time_minutes ? x.cooking_time_minutes + " mins" : "") : (x.brand || x.serving_unit || "")}</div>
     </div>
   `).join("");
 }
 
-async function confirmAddItem(refId) {
+function selectAddItem(refId) {
+  const source = addType === "recipe" ? data.recipes : data.foods;
+  const item = source.find(x => x.id === refId);
+  if (!item) return;
+
+  pendingAddSelection = {
+    id: item.id,
+    name: item.name,
+    sub: addType === "recipe"
+      ? (item.cooking_time_minutes ? `${item.cooking_time_minutes} mins` : "")
+      : (item.brand || item.serving_unit || "")
+  };
+  renderAddModal();
+}
+
+async function confirmAddItem() {
   const tag = document.getElementById("addTag").value.trim() || "Meal";
   const quantityRaw = document.getElementById("addQuantity").value;
   const quantity = quantityRaw === "" ? 1 : Number(quantityRaw);
+  const sel = pendingAddSelection;
 
   try {
     const planId = await ensureMealPlan();
-    await supabaseRequest("meal_plan_items", {
-      method: "POST",
-      body: { meal_plan_id: planId, day: addModalIso, meal_type: tag, quantity, ...(addType === "recipe" ? { recipe_id: refId } : { food_id: refId }) }
-    });
+    const body = {
+      meal_plan_id: planId, day: addModalIso, meal_type: tag, quantity,
+      ...(addType === "recipe" ? { recipe_id: sel.id } : { food_id: sel.id })
+    };
+    const created = await supabaseRequest("meal_plan_items", { method: "POST", body });
+
+    // Optimistic update — no full reload needed, we already know everything
+    // about the new item from what's already in memory.
+    const newItem = { id: created[0].id, tag, type: addType, refId: sel.id, quantity, name: sel.name, sub: sel.sub };
+    if (!data.week[addModalIso]) data.week[addModalIso] = [];
+    data.week[addModalIso].push(newItem);
+
     closeModal();
-    await loadAll();
+    renderWeek();
   } catch (error) {
     console.error(error);
     alert("Couldn't add that to the plan. Check the browser console for details.");
@@ -366,8 +415,12 @@ async function saveEditItem(itemId) {
       query: `?id=eq.${itemId}`,
       body: { meal_type: tag, quantity }
     });
+
+    const item = findItemById(itemId);
+    if (item) { item.tag = tag; item.quantity = quantity; }
+
     closeModal();
-    await loadAll();
+    renderWeek();
   } catch (error) {
     console.error(error);
     alert("Couldn't save that change. Check the browser console for details.");
@@ -381,7 +434,12 @@ async function removeItem(itemId) {
       query: `?id=eq.${itemId}`,
       prefer: "return=minimal"
     });
-    await loadAll();
+
+    for (const iso in data.week) {
+      const idx = data.week[iso].findIndex(i => i.id === itemId);
+      if (idx !== -1) { data.week[iso].splice(idx, 1); break; }
+    }
+    renderWeek();
   } catch (error) {
     console.error(error);
     alert("Couldn't remove that item. Check the browser console for details.");
@@ -420,7 +478,9 @@ async function clearWeek() {
         prefer: "return=minimal"
       });
     }
-    await loadAll();
+    currentMealPlanId = null;
+    data.week = {};
+    renderWeek();
   } catch (error) {
     console.error(error);
     alert("Couldn't clear the week. Check the browser console for details.");
