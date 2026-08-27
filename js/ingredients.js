@@ -197,4 +197,8 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeModal();
 });
 
-loadIngredients();
+(async function init() {
+  const uid = await window.authReady;
+  if (!uid) return; // redirecting to login
+  await loadIngredients();
+})();
