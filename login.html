@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savour — Sign in</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .auth-card { width:min(380px, 90vw); padding:28px; }
+  .auth-card h1 { margin:0 0 4px; }
+  .auth-card p.sub { color:var(--muted); font-size:13px; margin:0 0 20px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .field input { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; box-sizing:border-box; }
+  .auth-actions { margin-top:18px; }
+  .auth-actions .btn { width:100%; box-sizing:border-box; }
+  .switch-mode { text-align:center; margin-top:14px; font-size:13px; color:var(--muted); }
+  .switch-mode a { color:var(--accent-dark); cursor:pointer; text-decoration:underline; }
+  .auth-message { font-size:13px; margin-top:12px; padding:10px; border-radius:8px; }
+  .auth-message.error { background:#fdf1f0; color:#c0392b; }
+  .auth-message.success { background:var(--accent-soft); color:var(--accent-dark); }
+</style>
+</head>
+<body>
+<div class="card auth-card">
+  <h1>Savour</h1>
+  <p class="sub" id="authSubtitle">Sign in to your account</p>
+
+  <div class="field">
+    <label>Email</label>
+    <input id="authEmail" type="email" placeholder="you@example.com">
+  </div>
+  <div class="field">
+    <label>Password</label>
+    <input id="authPassword" type="password" placeholder="••••••••">
+  </div>
+
+  <div class="auth-actions">
+    <button class="btn primary" id="authSubmitBtn" onclick="handleSubmit()">Sign in</button>
+  </div>
+
+  <div class="switch-mode">
+    <span id="switchModeText">Don't have an account? <a onclick="switchMode()">Sign up</a></span>
+  </div>
+
+  <div id="authMessage"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/login.js"></script>
+</body>
+</html>
