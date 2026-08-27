@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savour — Shopping List</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .summary-bar { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+  .summary-pill { background:var(--accent-soft); color:var(--accent-dark); padding:8px 14px; border-radius:999px; font-size:13px; font-weight:600; }
+  .summary-note { color:var(--muted); font-size:12px; }
+
+  .category { margin-bottom:22px; }
+  .category h3 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 10px; }
+  .category-card { padding:6px 0; }
+  .shop-row { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f0f0ed; }
+  .shop-row:last-child { border-bottom:0; }
+  .shop-row input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); flex-shrink:0; }
+  .shop-row.checked .shop-label { text-decoration:line-through; color:#aaa; }
+  .shop-label { flex:1; font-size:14px; }
+  .shop-icon { margin-right:4px; }
+  .shop-qty { color:var(--muted); font-size:13px; white-space:nowrap; }
+  .shop-price { color:var(--accent-dark); font-size:13px; font-weight:600; white-space:nowrap; }
+  .empty-state { color:var(--muted); padding:40px; text-align:center; }
+  .refresh-btn { border:0; background:transparent; cursor:pointer; font-size:16px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>Savour</h1>
+    <p>Plan your week. Know what to buy. Waste less.</p>
+  </div>
+  <nav class="nav">
+    <a href="index.html">📅 Week</a>
+    <a href="recipes.html">🍳 Recipes</a>
+    <a href="ingredients.html">🥕 Ingredients</a>
+    <a href="foods.html">🥫 Foods</a>
+    <a href="shopping.html" class="active">🛒 Shopping</a>
+  </nav>
+</header>
+
+<main>
+<section id="shopping" class="view active">
+  <div class="section-head">
+    <h2>Shopping List <button class="refresh-btn" onclick="loadShoppingList()" title="Refresh">⟳</button></h2>
+    <button class="btn" onclick="clearChecked()">Clear ticks</button>
+  </div>
+  <div id="summaryBar" class="summary-bar"></div>
+  <div id="listContainer"></div>
+</section>
+</main>
+</div>
+
+<div id="dbStatus" class="status">Connecting to Supabase…</div>
+
+<script src="js/supabase.js"></script>
+<script src="js/shopping.js"></script>
+</body>
+</html>
