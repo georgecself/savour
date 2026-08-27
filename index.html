@@ -84,7 +84,9 @@
 
 <div id="dbStatus" class="status">Connecting to Supabase…</div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
+<script src="js/auth-guard.js"></script>
 <script>
 // data.week is keyed by ISO date ("2026-08-31") -> an array of items.
 // Each item: { id, tag, type: 'recipe'|'food', refId, quantity, name, sub }
@@ -142,9 +144,9 @@ async function loadAll() {
     const weekStart = getWeekDates()[0].iso;
 
     const [recipes, foods, plans] = await Promise.all([
-      supabaseRequest("recipes", { query: "?select=id,name,cooking_time_minutes&order=name.asc" }),
-      supabaseRequest("foods", { query: "?select=id,name,brand,serving_unit&order=name.asc" }),
-      supabaseRequest("meal_plans", { query: `?select=id&week_start=eq.${weekStart}&user_id=is.null&limit=1` })
+      supabaseRequest("recipes", { query: `?select=id,name,cooking_time_minutes&user_id=eq.${window.currentUserId}&order=name.asc` }),
+      supabaseRequest("foods", { query: `?select=id,name,brand,serving_unit&user_id=eq.${window.currentUserId}&order=name.asc` }),
+      supabaseRequest("meal_plans", { query: `?select=id&week_start=eq.${weekStart}&user_id=eq.${window.currentUserId}&limit=1` })
     ]);
 
     data.recipes = recipes;
@@ -301,10 +303,10 @@ async function confirmAddItem(refId) {
 
   try {
     const planId = await ensureMealPlan();
-    const body = { meal_plan_id: planId, day: addModalIso, meal_type: tag, quantity };
-    if (addType === "recipe") body.recipe_id = refId; else body.food_id = refId;
-
-    await supabaseRequest("meal_plan_items", { method: "POST", body });
+    await supabaseRequest("meal_plan_items", {
+      method: "POST",
+      body: { meal_plan_id: planId, day: addModalIso, meal_type: tag, quantity, ...(addType === "recipe" ? { recipe_id: refId } : { food_id: refId }) }
+    });
     closeModal();
     await loadAll();
   } catch (error) {
@@ -393,7 +395,7 @@ async function ensureMealPlan() {
 
   const weekStart = getWeekDates()[0].iso;
   const existing = await supabaseRequest("meal_plans", {
-    query: `?select=id&week_start=eq.${weekStart}&user_id=is.null&limit=1`
+    query: `?select=id&week_start=eq.${weekStart}&user_id=eq.${window.currentUserId}&limit=1`
   });
   if (existing.length) {
     currentMealPlanId = existing[0].id;
@@ -402,7 +404,7 @@ async function ensureMealPlan() {
 
   const created = await supabaseRequest("meal_plans", {
     method: "POST",
-    body: { week_start: weekStart, user_id: null }
+    body: { week_start: weekStart, user_id: window.currentUserId }
   });
   currentMealPlanId = created[0].id;
   return currentMealPlanId;
@@ -429,7 +431,11 @@ function closeModal() {
   document.getElementById("modalBackdrop").classList.remove("open");
 }
 
-loadAll();
+(async function init() {
+  const uid = await window.authReady;
+  if (!uid) return; // redirecting to login
+  await loadAll();
+})();
 </script>
 </body>
 </html>
