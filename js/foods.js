@@ -37,7 +37,7 @@ async function loadFoods() {
     setStatus("Loading foods…");
 
     state.foods = await supabaseRequest("foods", {
-      query: "?select=id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,created_at&order=name.asc"
+      query: `?select=id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,created_at&user_id=eq.${window.currentUserId}&order=name.asc`
     });
 
     renderFoods();
@@ -185,7 +185,7 @@ async function saveFood() {
     } else {
       await supabaseRequest("foods", {
         method: "POST",
-        body: { ...payload, user_id: null }
+        body: { ...payload, user_id: window.currentUserId }
       });
     }
 
@@ -233,4 +233,8 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeModal();
 });
 
-loadFoods();
+(async function init() {
+  const uid = await window.authReady;
+  if (!uid) return; // redirecting to login
+  await loadFoods();
+})();
