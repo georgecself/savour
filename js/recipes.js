@@ -8,7 +8,9 @@
 
 const state = {
   ingredients: [],   // full global ingredient list, loaded once
-  recipes: [],        // recipes with resolved ingredient rows
+  myRecipes: [],
+  libraryRecipes: [],
+  activeTab: "mine",
   editingRecipeId: null,
   rowCounter: 0,
   activeSuggestionRow: null
@@ -28,15 +30,9 @@ function setStatus(message) {
 
 // ---------- Loading ----------
 
-async function loadIngredients() {
-  state.ingredients = await supabaseRequest("ingredients", {
-    query: "?select=id,name,category,default_unit&order=name.asc"
-  });
-}
-
-async function loadRecipes() {
+async function loadRecipesMatching(query) {
   const recipes = await supabaseRequest("recipes", {
-    query: `?select=id,name,description,servings,cooking_time_minutes,instructions&user_id=eq.${window.currentUserId}&order=name.asc`
+    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,is_public&${query}&order=name.asc`
   });
 
   const recipeIds = recipes.map(r => r.id);
@@ -48,13 +44,16 @@ async function loadRecipes() {
     });
   }
 
-  state.recipes = recipes.map(r => ({
+  return recipes.map(r => ({
     id: r.id,
+    userId: r.user_id,
     name: r.name,
     description: r.description || "",
     servings: r.servings || 2,
     time: r.cooking_time_minutes || 30,
     instructions: r.instructions || "",
+    imageUrl: r.image_url || "",
+    isPublic: r.is_public,
     ingredients: recipeIngredients
       .filter(ri => ri.recipe_id === r.id)
       .map(ri => ({
@@ -71,7 +70,15 @@ async function loadRecipes() {
 async function loadAll() {
   try {
     setStatus("Loading…");
-    await Promise.all([loadIngredients(), loadRecipes()]);
+    state.ingredients = await supabaseRequest("ingredients", { query: "?select=id,name,category,default_unit&order=name.asc" });
+
+    const [mine, library] = await Promise.all([
+      loadRecipesMatching(`user_id=eq.${window.currentUserId}`),
+      loadRecipesMatching(`is_public=eq.true`)
+    ]);
+    state.myRecipes = mine;
+    state.libraryRecipes = library;
+
     renderRecipeList();
     setStatus("Connected to Supabase");
   } catch (error) {
@@ -81,31 +88,84 @@ async function loadAll() {
   }
 }
 
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.getElementById("tabMine").classList.toggle("active", tab === "mine");
+  document.getElementById("tabLibrary").classList.toggle("active", tab === "library");
+  renderRecipeList();
+}
+
 // ---------- Recipe list ----------
 
 function renderRecipeList() {
   const term = els.search.value.trim().toLowerCase();
-  const filtered = state.recipes.filter(r => r.name.toLowerCase().includes(term));
+  const source = state.activeTab === "library" ? state.libraryRecipes : state.myRecipes;
+  const filtered = source.filter(r => r.name.toLowerCase().includes(term));
 
   if (!filtered.length) {
-    els.grid.innerHTML = `<div class="empty-state">${term ? "No recipes match your search." : "No recipes yet — add your first one."}</div>`;
+    const emptyMsg = state.activeTab === "library"
+      ? (term ? "No library recipes match your search." : "No shared recipes yet.")
+      : (term ? "No recipes match your search." : "No recipes yet — add your first one.");
+    els.grid.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
     return;
   }
 
-  els.grid.innerHTML = filtered.map(r => `
+  els.grid.innerHTML = filtered.map(r => {
+    const isMine = r.userId === window.currentUserId;
+    return `
     <div class="card recipe-card">
-      <h3>${esc(r.name)}</h3>
-      <div class="meta">Serves ${r.servings} · ${r.time} mins · ${r.ingredients.length} ingredient${r.ingredients.length === 1 ? "" : "s"}</div>
-      <ul>
-        ${r.ingredients.slice(0, 5).map(i => `<li>${i.quantity ? esc(String(i.quantity)) + " " : ""}${esc(i.unit)} ${esc(i.name)}</li>`).join("")}
-        ${r.ingredients.length > 5 ? "<li>…</li>" : ""}
-      </ul>
-      <div class="recipe-actions">
-        <button class="btn" onclick="openRecipeModal('${r.id}')">Edit</button>
-        <button class="btn danger" onclick="deleteRecipe('${r.id}')">Delete</button>
+      ${r.imageUrl ? `<img class="recipe-card-img" src="${esc(r.imageUrl)}" alt="" onerror="this.style.display='none'">` : ""}
+      <div class="recipe-card-body">
+        ${state.activeTab === "library" ? `<div class="owner-badge">${isMine ? "Yours · published" : "Shared"}</div>` : ""}
+        <h3>${esc(r.name)}</h3>
+        <div class="meta">Serves ${r.servings} · ${r.time} mins · ${r.ingredients.length} ingredient${r.ingredients.length === 1 ? "" : "s"}</div>
+        <ul>
+          ${r.ingredients.slice(0, 5).map(i => `<li>${i.quantity ? esc(String(i.quantity)) + " " : ""}${esc(i.unit)} ${esc(i.name)}</li>`).join("")}
+          ${r.ingredients.length > 5 ? "<li>…</li>" : ""}
+        </ul>
+        <div class="recipe-actions">
+          <a class="btn" href="recipe-view.html?id=${r.id}">View</a>
+          ${isMine
+            ? `<button class="btn" onclick="openRecipeModal('${r.id}')">Edit</button><button class="btn danger" onclick="deleteRecipe('${r.id}')">Delete</button>`
+            : `<button class="btn primary" onclick="cloneRecipe('${r.id}')">＋ Add to my recipes</button>`
+          }
+        </div>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
+}
+
+async function cloneRecipe(id) {
+  const source = state.libraryRecipes.find(r => r.id === id);
+  if (!source) return;
+  if (!confirm(`Add "${source.name}" to your own recipes? You'll get your own editable copy.`)) return;
+
+  try {
+    const created = (await supabaseRequest("recipes", {
+      method: "POST",
+      body: {
+        name: source.name, description: source.description || null, servings: source.servings,
+        cooking_time_minutes: source.time, instructions: source.instructions || null,
+        image_url: source.imageUrl || null, user_id: window.currentUserId, is_public: false
+      }
+    }))[0];
+
+    if (source.ingredients.length) {
+      const rows = source.ingredients.map((ing, i) => ({
+        recipe_id: created.id, ingredient_id: ing.ingredientId,
+        quantity: ing.quantity, unit: ing.unit || null, notes: ing.notes || null, sort_order: i
+      }));
+      await supabaseRequest("recipe_ingredients", { method: "POST", body: rows });
+    }
+
+    await loadAll();
+    switchTab("mine");
+    alert(`"${source.name}" is now in your own recipes — feel free to edit your copy.`);
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't add that recipe. Check the browser console for details.");
+  }
 }
 
 async function deleteRecipe(id) {
@@ -123,7 +183,7 @@ async function deleteRecipe(id) {
 
 function openRecipeModal(id = null) {
   state.editingRecipeId = id;
-  const recipe = id ? state.recipes.find(r => r.id === id) : null;
+  const recipe = id ? state.myRecipes.find(r => r.id === id) : null;
 
   els.modal.innerHTML = `
     <h2>${recipe ? "Edit recipe" : "Add recipe"}</h2>
@@ -135,6 +195,10 @@ function openRecipeModal(id = null) {
       <div class="field full">
         <label>Description</label>
         <input id="rDescription" value="${recipe ? esc(recipe.description) : ""}" placeholder="Optional short description">
+      </div>
+      <div class="field full">
+        <label>Photo URL</label>
+        <input id="rImageUrl" value="${recipe ? esc(recipe.imageUrl) : ""}" placeholder="Optional — link to an image already online">
       </div>
       <div class="field">
         <label>Servings</label>
@@ -308,6 +372,7 @@ async function saveRecipe() {
   const servings = Number(document.getElementById("rServings").value) || 1;
   const time = Number(document.getElementById("rTime").value) || 0;
   const description = document.getElementById("rDescription").value.trim();
+  const imageUrl = document.getElementById("rImageUrl").value.trim();
   const instructions = document.getElementById("rInstructions").value.trim();
 
   // Validate every ingredient row BEFORE any Supabase call is made.
@@ -327,7 +392,7 @@ async function saveRecipe() {
   try {
     const recipePayload = {
       name, description: description || null, servings,
-      cooking_time_minutes: time, instructions: instructions || null
+      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null
     };
 
     if (state.editingRecipeId) {
