@@ -1,5 +1,9 @@
+const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
+
 const state = {
-  foods: [],
+  myFoods: [],
+  libraryFoods: [],
+  activeTab: "mine",
   editingId: null
 };
 
@@ -17,11 +21,13 @@ const els = {
   protein: document.getElementById("foodProtein"),
   carbs: document.getElementById("foodCarbs"),
   fat: document.getElementById("foodFat"),
+  imageUrl: document.getElementById("foodImageUrl"),
   price: document.getElementById("foodPrice"),
   add: document.getElementById("addFoodBtn"),
   cancel: document.getElementById("cancelBtn"),
   save: document.getElementById("saveBtn"),
-  status: document.getElementById("status")
+  status: document.getElementById("status"),
+  importLink: document.getElementById("importLink")
 };
 
 function setStatus(message) {
@@ -32,16 +38,29 @@ function fmtNum(n, suffix = "") {
   return n === null || n === undefined ? "—" : `${n}${suffix}`;
 }
 
+const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,image_url,is_public,created_at";
+
+async function loadFoodsMatching(query) {
+  return supabaseRequest("foods", { query: `?select=${FOOD_SELECT}&${query}&order=name.asc` });
+}
+
 async function loadFoods() {
   try {
     setStatus("Loading foods…");
 
-    state.foods = await supabaseRequest("foods", {
-      query: `?select=id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,created_at&user_id=eq.${window.currentUserId}&order=name.asc`
-    });
+    const [mine, library] = await Promise.all([
+      loadFoodsMatching(`user_id=eq.${window.currentUserId}`),
+      loadFoodsMatching(`is_public=eq.true`)
+    ]);
+    state.myFoods = mine;
+    state.libraryFoods = library;
+
+    if (window.currentUserId === ADMIN_USER_ID) {
+      els.importLink.style.display = "inline-block";
+    }
 
     renderFoods();
-    setStatus(`${state.foods.length} food${state.foods.length === 1 ? "" : "s"}`);
+    setStatus(`${state.myFoods.length} food${state.myFoods.length === 1 ? "" : "s"}`);
   } catch (error) {
     console.error(error);
     setStatus("Connection failed");
@@ -53,20 +72,28 @@ async function loadFoods() {
   }
 }
 
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.getElementById("tabMine").classList.toggle("active", tab === "mine");
+  document.getElementById("tabLibrary").classList.toggle("active", tab === "library");
+  renderFoods();
+}
+
 function renderFoods() {
   const term = els.search.value.trim().toLowerCase();
+  const source = state.activeTab === "library" ? state.libraryFoods : state.myFoods;
 
-  const filtered = state.foods.filter(item =>
+  const filtered = source.filter(item =>
     item.name.toLowerCase().includes(term) ||
     (item.brand || "").toLowerCase().includes(term) ||
     item.shopping_category.toLowerCase().includes(term)
   );
 
   if (!filtered.length) {
-    els.table.innerHTML = `
-      <div class="empty-state">
-        ${term ? "No foods match your search." : "No foods yet — add your first one."}
-      </div>`;
+    const emptyMsg = state.activeTab === "library"
+      ? (term ? "No library foods match your search." : "No shared foods yet.")
+      : (term ? "No foods match your search." : "No foods yet — add your first one.");
+    els.table.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
     return;
   }
 
@@ -87,9 +114,15 @@ function renderFoods() {
         </tr>
       </thead>
       <tbody>
-        ${filtered.map(item => `
+        ${filtered.map(item => {
+          const isMine = item.user_id === window.currentUserId;
+          return `
           <tr>
-            <td class="wrap"><strong>${esc(item.name)}</strong></td>
+            <td class="wrap">
+              ${item.image_url ? `<img class="food-thumb" src="${esc(item.image_url)}" alt="" onerror="this.style.display='none'">` : ""}
+              <strong>${esc(item.name)}</strong>
+              ${state.activeTab === "library" ? `<br><span class="owner-badge">${isMine ? "Yours" : "Shared"}</span>` : ""}
+            </td>
             <td>${esc(item.brand || "—")}</td>
             <td>${esc(item.shopping_category)}</td>
             <td class="num">${item.serving_size ? esc(String(item.serving_size)) + " " + esc(item.serving_unit || "") : "—"}</td>
@@ -100,15 +133,43 @@ function renderFoods() {
             <td class="num">${item.price !== null ? "£" + Number(item.price).toFixed(2) : "—"}</td>
             <td>
               <div class="actions">
-                <button class="btn" onclick="openEditFood('${item.id}')">Edit</button>
-                <button class="btn danger" onclick="deleteFood('${item.id}')">Delete</button>
+                ${isMine
+                  ? `<button class="btn" onclick="openEditFood('${item.id}')">Edit</button><button class="btn danger" onclick="deleteFood('${item.id}')">Delete</button>`
+                  : `<button class="btn primary" onclick="cloneFood('${item.id}')">＋ Add to mine</button>`
+                }
               </div>
             </td>
           </tr>
-        `).join("")}
+        `;
+        }).join("")}
       </tbody>
     </table>
   `;
+}
+
+async function cloneFood(id) {
+  const source = state.libraryFoods.find(f => f.id === id);
+  if (!source) return;
+  if (!confirm(`Add "${source.name}" to your own foods?`)) return;
+
+  try {
+    await supabaseRequest("foods", {
+      method: "POST",
+      body: {
+        name: source.name, brand: source.brand, shopping_category: source.shopping_category,
+        serving_size: source.serving_size, serving_unit: source.serving_unit,
+        calories: source.calories, protein_g: source.protein_g, carbohydrates_g: source.carbohydrates_g,
+        fat_g: source.fat_g, price: source.price, image_url: source.image_url,
+        user_id: window.currentUserId, is_public: false
+      }
+    });
+    await loadFoods();
+    switchTab("mine");
+    alert(`"${source.name}" is now in your own foods.`);
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't add that food. Check the browser console for details.");
+  }
 }
 
 function fillForm(item) {
@@ -121,6 +182,7 @@ function fillForm(item) {
   els.protein.value = item?.protein_g ?? "";
   els.carbs.value = item?.carbohydrates_g ?? "";
   els.fat.value = item?.fat_g ?? "";
+  els.imageUrl.value = item?.image_url || "";
   els.price.value = item?.price ?? "";
 }
 
@@ -133,7 +195,7 @@ function openAddFood() {
 }
 
 function openEditFood(id) {
-  const item = state.foods.find(x => x.id === id);
+  const item = [...state.myFoods, ...state.libraryFoods].find(x => x.id === id);
   if (!item) return;
 
   state.editingId = id;
@@ -169,6 +231,7 @@ async function saveFood() {
     protein_g: numOrNull(els.protein.value),
     carbohydrates_g: numOrNull(els.carbs.value),
     fat_g: numOrNull(els.fat.value),
+    image_url: els.imageUrl.value.trim() || null,
     price: numOrNull(els.price.value)
   };
 
@@ -177,6 +240,8 @@ async function saveFood() {
 
   try {
     if (state.editingId) {
+      // Not touching is_public here — PATCH only updates the fields listed,
+      // so publish status (set via the importer) is left exactly as it was.
       await supabaseRequest("foods", {
         method: "PATCH",
         query: `?id=eq.${state.editingId}`,
@@ -201,7 +266,7 @@ async function saveFood() {
 }
 
 async function deleteFood(id) {
-  const item = state.foods.find(x => x.id === id);
+  const item = [...state.myFoods, ...state.libraryFoods].find(x => x.id === id);
   if (!item) return;
 
   if (!confirm(`Delete "${item.name}"? This will also remove it from any meal plans or pantry entries it's used in.`)) return;

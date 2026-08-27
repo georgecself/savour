@@ -16,6 +16,8 @@ const state = {
   activeSuggestionRow: null
 };
 
+const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
+
 const els = {
   grid: document.getElementById("recipeGrid"),
   search: document.getElementById("recipeSearch"),
@@ -78,6 +80,11 @@ async function loadAll() {
     ]);
     state.myRecipes = mine;
     state.libraryRecipes = library;
+
+    if (window.currentUserId === ADMIN_USER_ID) {
+      const importLink = document.getElementById("importLink");
+      if (importLink) importLink.style.display = "inline-block";
+    }
 
     renderRecipeList();
     setStatus("Connected to Supabase");

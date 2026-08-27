@@ -1,8 +1,19 @@
 let ingredients = [];
 let parsedRows = null;
+const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
 
 function setStatus(message) {
   document.getElementById("status").textContent = message;
+}
+
+function renderDenied() {
+  document.querySelector(".import-wrap").innerHTML = `
+    <a href="recipes.html" style="display:inline-block; margin-bottom:14px; color:var(--muted); font-size:13px; text-decoration:none;">← Back to recipes</a>
+    <div class="card import-card">
+      <h2 style="margin-top:0;">Not available</h2>
+      <p class="meta">Bulk import is restricted for now. Ask George if you've got a batch of recipes to add.</p>
+    </div>
+  `;
 }
 
 function findIngredientByName(name) {
@@ -201,6 +212,13 @@ function renderResults(results) {
 (async function init() {
   const uid = await window.authReady;
   if (!uid) return; // redirecting to login
+
+  if (uid !== ADMIN_USER_ID) {
+    renderDenied();
+    setStatus("Connected to Supabase");
+    return;
+  }
+
   try {
     ingredients = await supabaseRequest("ingredients", { query: "?select=id,name,default_unit&order=name.asc" });
     setStatus("Connected to Supabase");
