@@ -38,7 +38,7 @@ function formatQty(n) {
 
 function loadCheckedFromStorage(weekStart) {
   try {
-    const raw = localStorage.getItem(CHECKED_KEY_PREFIX + weekStart);
+    const raw = localStorage.getItem(CHECKED_KEY_PREFIX + window.currentUserId + "_" + weekStart);
     return raw ? new Set(JSON.parse(raw)) : new Set();
   } catch {
     return new Set();
@@ -47,7 +47,7 @@ function loadCheckedFromStorage(weekStart) {
 
 function saveCheckedToStorage() {
   try {
-    localStorage.setItem(CHECKED_KEY_PREFIX + currentWeekStart, JSON.stringify([...checkedKeys]));
+    localStorage.setItem(CHECKED_KEY_PREFIX + window.currentUserId + "_" + currentWeekStart, JSON.stringify([...checkedKeys]));
   } catch (e) {
     console.warn("Couldn't persist checked items", e);
   }
@@ -61,7 +61,7 @@ async function loadShoppingList() {
     checkedKeys = loadCheckedFromStorage(currentWeekStart);
 
     const plans = await supabaseRequest("meal_plans", {
-      query: `?select=id&week_start=eq.${currentWeekStart}&user_id=is.null&limit=1`
+      query: `?select=id&week_start=eq.${currentWeekStart}&user_id=eq.${window.currentUserId}&limit=1`
     });
 
     if (!plans.length) {
@@ -87,7 +87,7 @@ async function loadShoppingList() {
     const [ingredientRows, foodRows, pantryItems] = await Promise.all([
       loadIngredientContributions(recipeItems),
       loadFoodContributions(foodItems),
-      supabaseRequest("pantry_items", { query: "?select=ingredient_id,food_id,quantity,unit" })
+      supabaseRequest("pantry_items", { query: `?select=ingredient_id,food_id,quantity,unit&user_id=eq.${window.currentUserId}` })
     ]);
 
     const { buyRows, coveredRows } = applyPantry(ingredientRows, foodRows, pantryItems);
@@ -352,4 +352,8 @@ function clearChecked() {
   });
 }
 
-loadShoppingList();
+(async function init() {
+  const uid = await window.authReady;
+  if (!uid) return; // redirecting to login
+  await loadShoppingList();
+})();
