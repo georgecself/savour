@@ -84,12 +84,15 @@ async function loadShoppingList() {
     const recipeItems = items.filter(i => i.recipe_id);
     const foodItems = items.filter(i => i.food_id);
 
-    const [ingredientRows, foodRows] = await Promise.all([
+    const [ingredientRows, foodRows, pantryItems] = await Promise.all([
       loadIngredientContributions(recipeItems),
-      loadFoodContributions(foodItems)
+      loadFoodContributions(foodItems),
+      supabaseRequest("pantry_items", { query: "?select=ingredient_id,food_id,quantity,unit" })
     ]);
 
-    render(ingredientRows, foodRows);
+    const { buyRows, coveredRows } = applyPantry(ingredientRows, foodRows, pantryItems);
+
+    render(buyRows, coveredRows);
     setDbStatus("Connected to Supabase");
   } catch (error) {
     console.error(error);
@@ -128,6 +131,7 @@ async function loadIngredientContributions(recipeItems) {
       const key = `${ri.ingredient_id}::${unit}`;
       if (!aggregated[key]) {
         aggregated[key] = {
+          ingredientId: ri.ingredient_id,
           label: ri.ingredients.name,
           category: ri.ingredients.category || "Other",
           unit,
@@ -143,16 +147,7 @@ async function loadIngredientContributions(recipeItems) {
     });
   });
 
-  return Object.values(aggregated).map(row => ({
-    icon: "🍳",
-    category: row.category,
-    label: row.label,
-    qtyLabel: row.qtySum > 0
-      ? `${formatQty(row.qtySum)}${row.unit ? " " + row.unit : ""}${row.hasUnspecified ? " + more" : ""}`
-      : (row.hasUnspecified ? "some (amount not specified)" : ""),
-    price: null,
-    key: `ing:${row.label}:${row.unit}`
-  }));
+  return Object.values(aggregated); // raw — pantry subtraction happens before formatting
 }
 
 async function loadFoodContributions(foodItems) {
@@ -175,27 +170,106 @@ async function loadFoodContributions(foodItems) {
     const food = foodsById[foodId];
     if (!food) return null;
     return {
-      icon: "🥫",
-      category: food.shopping_category || "Other",
+      foodId,
       label: food.brand ? `${food.name} (${food.brand})` : food.name,
-      qtyLabel: `×${formatQty(qty)}`,
-      price: food.price !== null && food.price !== undefined ? food.price * qty : null,
-      key: `food:${foodId}`
+      category: food.shopping_category || "Other",
+      qty,
+      unitPrice: food.price !== null && food.price !== undefined ? food.price : null
     };
   }).filter(Boolean);
 }
 
-function render(ingredientRows, foodRows) {
-  const allRows = [...ingredientRows, ...foodRows];
+function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
+  const pantryIngredientMap = {}; // ingredientId::unit -> qty
+  const pantryFoodMap = {}; // foodId -> qty
+
+  pantryItems.forEach(p => {
+    if (p.ingredient_id) {
+      const key = `${p.ingredient_id}::${p.unit || ""}`;
+      pantryIngredientMap[key] = (pantryIngredientMap[key] || 0) + (p.quantity || 0);
+    } else if (p.food_id) {
+      pantryFoodMap[p.food_id] = (pantryFoodMap[p.food_id] || 0) + (p.quantity || 0);
+    }
+  });
+
+  const buyRows = [];
+  const coveredRows = [];
+
+  ingredientRowsRaw.forEach(row => {
+    const key = `${row.ingredientId}::${row.unit}`;
+    const owned = pantryIngredientMap[key] || 0;
+
+    // Can only safely subtract when we know the needed amount — an
+    // unspecified-quantity ingredient always stays on the buy list.
+    if (row.qtySum > 0 && owned > 0) {
+      const remaining = row.qtySum - owned;
+      if (remaining <= 0) {
+        coveredRows.push({
+          icon: "🍳", category: row.category, label: row.label,
+          qtyLabel: `need ${formatQty(row.qtySum)}${row.unit ? " " + row.unit : ""} — have ${formatQty(owned)}${row.unit ? " " + row.unit : ""}`,
+          price: null, key: `ing:${row.ingredientId}:${row.unit}`
+        });
+        return;
+      }
+      buyRows.push({
+        icon: "🍳", category: row.category, label: row.label,
+        qtyLabel: `${formatQty(remaining)}${row.unit ? " " + row.unit : ""}${row.hasUnspecified ? " + more" : ""} (have ${formatQty(owned)} already)`,
+        price: null, key: `ing:${row.ingredientId}:${row.unit}`
+      });
+      return;
+    }
+
+    buyRows.push({
+      icon: "🍳", category: row.category, label: row.label,
+      qtyLabel: row.qtySum > 0
+        ? `${formatQty(row.qtySum)}${row.unit ? " " + row.unit : ""}${row.hasUnspecified ? " + more" : ""}`
+        : (row.hasUnspecified ? "some (amount not specified)" : ""),
+      price: null, key: `ing:${row.ingredientId}:${row.unit}`
+    });
+  });
+
+  foodRowsRaw.forEach(row => {
+    const owned = pantryFoodMap[row.foodId] || 0;
+    const remaining = row.qty - owned;
+
+    if (owned > 0 && remaining <= 0) {
+      coveredRows.push({
+        icon: "🥫", category: row.category, label: row.label,
+        qtyLabel: `need ×${formatQty(row.qty)} — have ×${formatQty(owned)}`,
+        price: null, key: `food:${row.foodId}`
+      });
+      return;
+    }
+
+    buyRows.push({
+      icon: "🥫", category: row.category, label: row.label,
+      qtyLabel: `×${formatQty(remaining)}${owned > 0 ? ` (have ×${formatQty(owned)} already)` : ""}`,
+      price: row.unitPrice !== null ? row.unitPrice * remaining : null,
+      key: `food:${row.foodId}`
+    });
+  });
+
+  return { buyRows, coveredRows };
+}
+
+function render(buyRows, coveredRows) {
+  const allRows = [...buyRows, ...coveredRows];
 
   if (!allRows.length) {
     renderEmpty();
     return;
   }
 
-  // Group by category
+  if (!buyRows.length) {
+    document.getElementById("listContainer").innerHTML =
+      `<div class="empty-state">Everything planned this week is already covered by your pantry. 🎉</div>` + renderCoveredSection(coveredRows);
+    renderSummary(buyRows, coveredRows);
+    return;
+  }
+
+  // Group buy rows by category
   const categories = {};
-  allRows.forEach(row => {
+  buyRows.forEach(row => {
     if (!categories[row.category]) categories[row.category] = [];
     categories[row.category].push(row);
   });
@@ -206,7 +280,7 @@ function render(ingredientRows, foodRows) {
     return a.localeCompare(b);
   });
 
-  document.getElementById("listContainer").innerHTML = sortedCategoryNames.map(cat => {
+  const buyHtml = sortedCategoryNames.map(cat => {
     const rows = categories[cat].sort((a, b) => a.label.localeCompare(b.label));
     return `
       <div class="category">
@@ -225,10 +299,33 @@ function render(ingredientRows, foodRows) {
     `;
   }).join("");
 
-  const totalCost = foodRows.reduce((sum, r) => sum + (r.price || 0), 0);
+  document.getElementById("listContainer").innerHTML = buyHtml + renderCoveredSection(coveredRows);
+  renderSummary(buyRows, coveredRows);
+}
+
+function renderCoveredSection(coveredRows) {
+  if (!coveredRows.length) return "";
+  return `
+    <div class="category">
+      <h3>Already covered by pantry</h3>
+      <div class="card category-card">
+        ${coveredRows.map(row => `
+          <div class="shop-row">
+            <div class="shop-label"><span class="shop-icon">${row.icon}</span>${esc(row.label)}</div>
+            <div class="shop-qty">${esc(row.qtyLabel)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderSummary(buyRows, coveredRows) {
+  const totalCost = buyRows.reduce((sum, r) => sum + (r.price || 0), 0);
   const summary = document.getElementById("summaryBar");
   summary.innerHTML = `
-    <div class="summary-pill">${allRows.length} item${allRows.length === 1 ? "" : "s"}</div>
+    <div class="summary-pill">${buyRows.length} to buy</div>
+    ${coveredRows.length ? `<div class="summary-pill">${coveredRows.length} covered by pantry</div>` : ""}
     ${totalCost > 0 ? `<div class="summary-pill">Est. £${totalCost.toFixed(2)}</div>` : ""}
     <div class="summary-note">Cost estimate covers priced foods only — recipe ingredients aren't priced yet.</div>
   `;
