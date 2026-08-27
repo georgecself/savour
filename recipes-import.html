@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savour — Bulk Import Recipes</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .import-wrap { max-width:720px; margin:0 auto; }
+  .card.import-card { padding:24px; margin-bottom:20px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .drop-zone { border:2px dashed var(--line); border-radius:14px; padding:30px; text-align:center; color:var(--muted); cursor:pointer; }
+  .drop-zone.dragover { border-color:var(--accent); background:var(--accent-soft); }
+  .drop-zone input { display:none; }
+  .checkbox-row { display:flex; align-items:center; gap:8px; font-size:14px; margin:14px 0; }
+  .checkbox-row input { width:17px; height:17px; accent-color:var(--accent); }
+  .file-name { font-size:13px; color:var(--accent-dark); margin-top:8px; }
+
+  .results-list { margin-top:12px; }
+  .result-row { display:flex; align-items:flex-start; gap:8px; padding:9px 0; border-bottom:1px solid #f0f0ed; font-size:13px; }
+  .result-row:last-child { border-bottom:0; }
+  .result-icon { flex-shrink:0; }
+  .result-ok { color: #2e7d4f; }
+  .result-fail { color: #c0392b; }
+  .summary-bar { display:flex; gap:12px; margin-bottom:10px; }
+  .summary-pill { background:var(--accent-soft); color:var(--accent-dark); padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; }
+
+  code { background:#f0f0ed; padding:1px 5px; border-radius:5px; font-size:12px; }
+  pre.template-example { background:#f7f7f4; border:1px solid var(--line); border-radius:10px; padding:14px; font-size:12px; overflow-x:auto; }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>Savour</h1>
+    <p>Plan your week. Know what to buy. Waste less.</p>
+  </div>
+  <nav class="nav">
+    <a href="index.html">📅 Week</a>
+    <a href="recipes.html" class="active">🍳 Recipes</a>
+    <a href="ingredients.html">🥕 Ingredients</a>
+    <a href="foods.html">🥫 Foods</a>
+    <a href="shopping.html">🛒 Shopping</a>
+    <a href="pantry.html">📦 Pantry</a>
+  </nav>
+</header>
+
+<main>
+<div class="import-wrap">
+  <a href="recipes.html" style="display:inline-block; margin-bottom:14px; color:var(--muted); font-size:13px; text-decoration:none;">← Back to recipes</a>
+  <h2>Bulk import recipes</h2>
+
+  <div class="card import-card">
+    <p class="meta" style="color:var(--muted); font-size:13px;">
+      Upload a CSV with one row per recipe. Ingredient names must already exist in the
+      <a href="ingredients.html">Ingredients</a> list — anything that doesn't match gets
+      skipped with a reason, so you can add the missing ingredient and re-import just that row.
+    </p>
+
+    <p style="margin-top:14px;"><button class="btn" onclick="downloadTemplate()">⬇ Download CSV template</button></p>
+
+    <details style="margin-top:14px;">
+      <summary style="cursor:pointer; font-size:13px; color:var(--accent-dark);">Show expected format</summary>
+      <p class="meta" style="font-size:13px; margin-top:10px;">Columns: <code>name, description, servings, cooking_time_minutes, instructions, image_url, ingredients</code></p>
+      <p class="meta" style="font-size:13px;">The <code>instructions</code> cell holds one step per line. The <code>ingredients</code> cell holds one ingredient per line, formatted <code>quantity | ingredient name | unit</code> — e.g.:</p>
+      <pre class="template-example">500 | Chicken breast | g
+1 | Onion | item
+2 | Garlic | clove</pre>
+    </details>
+  </div>
+
+  <div class="card import-card">
+    <div class="field">
+      <label>CSV file</label>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        Click to choose a file, or drop it here
+        <input type="file" id="fileInput" accept=".csv">
+      </div>
+      <div id="fileName" class="file-name"></div>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="publishCheckbox">
+      <label for="publishCheckbox">Publish this batch to the shared library (visible to everyone)</label>
+    </div>
+
+    <button class="btn primary" id="importBtn" onclick="runImport()" disabled>Import recipes</button>
+  </div>
+
+  <div class="card import-card" id="resultsCard" style="display:none;">
+    <h3 style="margin-top:0;">Results</h3>
+    <div id="summaryBar" class="summary-bar"></div>
+    <div id="resultsList" class="results-list"></div>
+  </div>
+</div>
+</main>
+</div>
+
+<div id="status" class="status">Connecting to Supabase…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth-guard.js"></script>
+<script src="js/recipes-import.js"></script>
+</body>
+</html>
