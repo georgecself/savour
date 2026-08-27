@@ -14,10 +14,13 @@
 
   .item-row { display:flex; align-items:flex-start; gap:8px; padding:9px; margin-bottom:7px; border:1px solid var(--line); border-radius:10px; background:#fcfcfb; }
   .item-main { flex:1; min-width:0; }
-  .tag-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-bottom:4px; }
+  .tag-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-bottom:4px; cursor:pointer; }
+  .tag-badge:hover { filter:brightness(0.95); }
   .item-name { font-size:13px; font-weight:600; word-break:break-word; }
   .item-sub { font-size:11px; color:var(--muted); margin-top:1px; }
-  .remove-item { border:0; background:transparent; color:#aaa; font-size:16px; padding:0 2px; cursor:pointer; flex-shrink:0; }
+  .item-actions { display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+  .item-actions button { border:0; background:transparent; color:#aaa; font-size:14px; padding:2px; cursor:pointer; line-height:1; }
+  .edit-item:hover { color:var(--accent-dark); }
   .remove-item:hover { color:#c0392b; }
   .no-items { color:var(--muted); font-size:12px; padding:8px 2px 4px; }
   .add-day-btn { margin-top:auto; width:100%; border:1px dashed #d1d2cc; background:transparent; border-radius:10px; padding:9px; color:#7a7c74; font-size:13px; cursor:pointer; }
@@ -200,11 +203,14 @@ function renderWeek() {
       ${items.length ? items.map(item => `
         <div class="item-row">
           <div class="item-main">
-            ${item.tag ? `<div class="tag-badge">${esc(item.tag)}</div>` : ""}
+            <div class="tag-badge" title="Click to edit tag/quantity" onclick="openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
             <div class="item-name">${item.type === "recipe" ? "🍳" : "🥫"} ${esc(item.name)}${item.quantity && item.quantity != 1 ? ` ×${esc(String(item.quantity))}` : ""}</div>
             ${item.sub ? `<div class="item-sub">${esc(item.sub)}</div>` : ""}
           </div>
-          <button class="remove-item" onclick="removeItem('${item.id}')">×</button>
+          <div class="item-actions">
+            <button class="edit-item" title="Edit tag/quantity" onclick="openEditModal('${item.id}')">✏️</button>
+            <button class="remove-item" title="Remove" onclick="removeItem('${item.id}')">×</button>
+          </div>
         </div>
       `).join("") : `<div class="no-items">Nothing planned yet.</div>`}
       <button class="add-day-btn" onclick="openAddModal('${iso}','${dayName}')">＋ Add</button>
@@ -302,6 +308,65 @@ async function confirmAddItem(refId) {
   } catch (error) {
     console.error(error);
     alert("Couldn't add that to the plan. Check the browser console for details.");
+  }
+}
+
+// ---------- Edit-item modal (fixes tag/quantity without delete+re-add) ----------
+
+function findItemById(itemId) {
+  for (const iso in data.week) {
+    const found = data.week[iso].find(i => i.id === itemId);
+    if (found) return found;
+  }
+  return null;
+}
+
+function openEditModal(itemId) {
+  const item = findItemById(itemId);
+  if (!item) return;
+
+  document.getElementById("modal").innerHTML = `
+    <h2>Edit ${item.type === "recipe" ? "🍳" : "🥫"} ${esc(item.name)}</h2>
+    <p class="meta">Change the tag or quantity — to swap the recipe/food itself, remove this and add a new one.</p>
+
+    <div class="tag-quantity-row">
+      <div class="field">
+        <label>Tag</label>
+        <input id="editTag" list="tagOptions" value="${esc(item.tag || "")}" placeholder="e.g. Breakfast">
+        <datalist id="tagOptions">
+          <option value="Breakfast"><option value="Lunch"><option value="Dinner"><option value="Snack">
+        </datalist>
+      </div>
+      <div class="field">
+        <label>Quantity</label>
+        <input id="editQuantity" type="number" step="any" min="0" value="${item.quantity ?? 1}">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveEditItem('${itemId}')">Save</button>
+    </div>
+  `;
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+async function saveEditItem(itemId) {
+  const tag = document.getElementById("editTag").value.trim() || "Meal";
+  const quantityRaw = document.getElementById("editQuantity").value;
+  const quantity = quantityRaw === "" ? 1 : Number(quantityRaw);
+
+  try {
+    await supabaseRequest("meal_plan_items", {
+      method: "PATCH",
+      query: `?id=eq.${itemId}`,
+      body: { meal_type: tag, quantity }
+    });
+    closeModal();
+    await loadAll();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't save that change. Check the browser console for details.");
   }
 }
 
