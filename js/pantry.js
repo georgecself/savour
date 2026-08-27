@@ -27,8 +27,8 @@ async function loadAll() {
 
     const [ingredients, foods, rawPantry] = await Promise.all([
       supabaseRequest("ingredients", { query: "?select=id,name,category,default_unit&order=name.asc" }),
-      supabaseRequest("foods", { query: "?select=id,name,brand,serving_unit,shopping_category&order=name.asc" }),
-      supabaseRequest("pantry_items", { query: "?select=id,ingredient_id,food_id,quantity,unit&order=created_at.asc" })
+      supabaseRequest("foods", { query: `?select=id,name,brand,serving_unit,shopping_category&user_id=eq.${window.currentUserId}&order=name.asc` }),
+      supabaseRequest("pantry_items", { query: `?select=id,ingredient_id,food_id,quantity,unit&user_id=eq.${window.currentUserId}&order=created_at.asc` })
     ]);
 
     state.ingredients = ingredients;
@@ -198,7 +198,7 @@ async function confirmAddPantry() {
         method: "PATCH", query: `?id=eq.${existing.id}`, body: { quantity: merged, unit }
       });
     } else {
-      const body = { quantity, unit, user_id: null };
+      const body = { quantity, unit, user_id: window.currentUserId };
       if (state.addType === "ingredient") body.ingredient_id = sel.id; else body.food_id = sel.id;
       await supabaseRequest("pantry_items", { method: "POST", body });
     }
@@ -269,4 +269,8 @@ els.add.addEventListener("click", openAddModal);
 els.search.addEventListener("input", renderTable);
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
-loadAll();
+(async function init() {
+  const uid = await window.authReady;
+  if (!uid) return; // redirecting to login
+  await loadAll();
+})();
