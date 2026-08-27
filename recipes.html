@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savour — Recipes</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .recipe-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:18px; }
+  .recipe-toolbar input { flex:1; max-width:320px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .recipe-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .recipe-card { padding:18px; }
+  .recipe-card h3 { margin:0 0 6px; }
+  .recipe-card .meta { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  .recipe-card ul { padding-left:18px; color:#4f514c; font-size:13px; margin:0 0 12px; }
+  .recipe-actions { display:flex; gap:7px; }
+  .empty-state { color:var(--muted); padding:30px; text-align:center; }
+
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.38); align-items:center; justify-content:center; padding:20px; z-index:10; }
+  .modal-backdrop.open { display:flex; }
+  .modal { width:min(720px,100%); max-height:90vh; overflow:auto; background:white; border-radius:20px; padding:24px; }
+  .modal h2 { margin-top:0; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .field { margin-bottom:13px; }
+  .field.full { grid-column:1 / -1; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .field input, .field textarea, .field select { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:white; box-sizing:border-box; }
+  .field textarea { min-height:90px; resize:vertical; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
+
+  .ing-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+  .ing-row { display:grid; grid-template-columns:90px 1fr 90px 32px; gap:8px; align-items:start; position:relative; }
+  .ing-row input { width:100%; padding:9px; border:1px solid var(--line); border-radius:8px; box-sizing:border-box; }
+  .ing-row input.invalid { border-color:#c0392b; background:#fdf1f0; }
+  .ing-remove { border:0; background:transparent; color:#aaa; font-size:18px; cursor:pointer; padding:4px; }
+  .ing-remove:hover { color:#c0392b; }
+  .ing-suggestions { position:absolute; top:100%; left:90px; right:122px; background:white; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.1); max-height:180px; overflow-y:auto; z-index:20; }
+  .ing-suggestions div { padding:8px 10px; font-size:13px; cursor:pointer; }
+  .ing-suggestions div:hover, .ing-suggestions div.active { background:var(--accent-soft); }
+  .ing-suggestions .no-match { color:var(--muted); cursor:default; }
+  .ing-suggestions .no-match:hover { background:none; }
+  .add-row-btn { margin-top:2px; }
+  .row-error { font-size:12px; color:#c0392b; margin-top:-4px; }
+
+  @media(max-width:900px){ .recipe-grid{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:650px){
+    .recipe-grid{grid-template-columns:1fr}
+    .form-grid{grid-template-columns:1fr}
+    .field.full{grid-column:auto}
+    .ing-row{grid-template-columns:70px 1fr 70px 28px}
+    .ing-suggestions{left:70px; right:98px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>Savour</h1>
+    <p>Plan your week. Know what to buy. Waste less.</p>
+  </div>
+  <nav class="nav">
+    <a href="index.html">📅 Week</a>
+    <a href="recipes.html" class="active">🍳 Recipes</a>
+    <a href="ingredients.html">🥕 Ingredients</a>
+  </nav>
+</header>
+
+<main>
+<section id="recipes" class="view active">
+  <div class="section-head"><h2>Recipes</h2><button class="btn primary" onclick="openRecipeModal()">＋ Add recipe</button></div>
+  <div class="recipe-toolbar">
+    <input id="recipeSearch" placeholder="Search recipes…" oninput="renderRecipeList()">
+  </div>
+  <div id="recipeGrid" class="recipe-grid"></div>
+</section>
+</main>
+</div>
+
+<div id="modalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+  <div id="modal" class="modal"></div>
+</div>
+
+<div id="status" class="status">Connecting to Supabase…</div>
+
+<script src="js/supabase.js"></script>
+<script src="js/recipes.js"></script>
+</body>
+</html>
