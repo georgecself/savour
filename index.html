@@ -7,25 +7,47 @@
 <link rel="stylesheet" href="css/style.css">
 <style>
   .week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; }
-  .day { min-width:0; padding:14px; }
+  .day { min-width:0; padding:14px; display:flex; flex-direction:column; }
   .day-head { padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:10px; }
   .day-name { font-weight:700; }
   .day-date { font-size:12px; color:var(--muted); margin-top:2px; }
-  .meal-slot { border:1px dashed #d1d2cc; border-radius:12px; padding:10px; margin-bottom:9px; min-height:68px; background:#fcfcfb; }
-  .meal-slot.empty { color:#999b94; font-size:13px; display:flex; align-items:center; justify-content:center; text-align:center; width:100%; }
-  .slot-label { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:5px; }
-  .meal-name { font-size:13px; font-weight:600; }
-  .remove-meal { border:0; background:transparent; color:#aaa; float:right; padding:0 2px; }
-  .meal-picker { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
-  .meal-picker button { border:1px solid var(--line); background:white; border-radius:10px; padding:12px 8px; }
+
+  .item-row { display:flex; align-items:flex-start; gap:8px; padding:9px; margin-bottom:7px; border:1px solid var(--line); border-radius:10px; background:#fcfcfb; }
+  .item-main { flex:1; min-width:0; }
+  .tag-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-bottom:4px; }
+  .item-name { font-size:13px; font-weight:600; word-break:break-word; }
+  .item-sub { font-size:11px; color:var(--muted); margin-top:1px; }
+  .remove-item { border:0; background:transparent; color:#aaa; font-size:16px; padding:0 2px; cursor:pointer; flex-shrink:0; }
+  .remove-item:hover { color:#c0392b; }
+  .no-items { color:var(--muted); font-size:12px; padding:8px 2px 4px; }
+  .add-day-btn { margin-top:auto; width:100%; border:1px dashed #d1d2cc; background:transparent; border-radius:10px; padding:9px; color:#7a7c74; font-size:13px; cursor:pointer; }
+  .add-day-btn:hover { background:#fcfcfb; }
+
   .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.38); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
-  .modal { width:min(620px,100%); max-height:90vh; overflow:auto; background:white; border-radius:20px; padding:24px; }
-  .modal h2 { margin-top:0; }
+  .modal { width:min(560px,100%); max-height:90vh; overflow:auto; background:white; border-radius:20px; padding:24px; }
+  .modal h2 { margin-top:0; margin-bottom:4px; }
+  .modal .meta { color:var(--muted); font-size:13px; margin-bottom:16px; }
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
-  .empty-state { color:var(--muted); padding:30px; text-align:center; }
+
+  .type-toggle { display:flex; gap:8px; margin-bottom:14px; }
+  .type-btn { flex:1; border:1px solid var(--line); background:white; border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
+  .type-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
+
+  .field { margin-bottom:13px; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .field input { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:white; box-sizing:border-box; }
+  .tag-quantity-row { display:grid; grid-template-columns:2fr 1fr; gap:10px; }
+
+  .add-options { max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
+  .add-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid #f0f0ed; }
+  .add-option:last-child { border-bottom:0; }
+  .add-option:hover { background:var(--accent-soft); }
+  .add-option .sub { color:var(--muted); font-size:11px; margin-top:1px; }
+  .add-options .empty-state { padding:16px; font-size:13px; }
+
   @media(max-width:900px){.week-grid{grid-template-columns:repeat(4,1fr)}}
-  @media(max-width:650px){.week-grid{grid-template-columns:1fr}.meal-picker{grid-template-columns:1fr}}
+  @media(max-width:650px){.week-grid{grid-template-columns:1fr}.tag-quantity-row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -59,14 +81,19 @@
 
 <script src="js/supabase.js"></script>
 <script>
-// data.week is keyed by ISO date string ("2026-08-31"), matching the `day`
-// column on meal_plan_items, not by day name.
-const data = { recipes: [], week: {} };
-let currentMealPlanId = null; // null until this week's meal_plans row exists
+// data.week is keyed by ISO date ("2026-08-31") -> an array of items.
+// Each item: { id, tag, type: 'recipe'|'food', refId, quantity, name, sub }
+const data = { recipes: [], foods: [], week: {} };
+let currentMealPlanId = null;
 let loading = false;
 
+// Add-item modal state
+let addModalIso = null;
+let addModalDayName = null;
+let addType = "recipe";
+
 const dayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const mealTypes = ["Breakfast","Lunch","Dinner"];
+const tagOrder = ["Breakfast","Lunch","Dinner","Snack"];
 
 function setDbStatus(message) {
   document.getElementById("dbStatus").textContent = message;
@@ -76,7 +103,6 @@ function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// Returns the 7 dates (Mon–Sun) of the current calendar week.
 function getWeekDates() {
   const now = new Date();
   const day = now.getDay();
@@ -91,33 +117,66 @@ function getWeekDates() {
   });
 }
 
+function sortItems(items) {
+  return [...items].sort((a, b) => {
+    const ai = tagOrder.indexOf(a.tag), bi = tagOrder.indexOf(b.tag);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return 0; // both custom tags — keep insertion order
+  });
+}
+
+// ---------- Loading ----------
+
 async function loadAll() {
   if (loading) return;
   loading = true;
   try {
     setDbStatus("Loading…");
-    const weekDates = getWeekDates();
-    const weekStart = weekDates[0].iso;
+    const weekStart = getWeekDates()[0].iso;
 
-    const [recipes, plans] = await Promise.all([
+    const [recipes, foods, plans] = await Promise.all([
       supabaseRequest("recipes", { query: "?select=id,name,cooking_time_minutes&order=name.asc" }),
+      supabaseRequest("foods", { query: "?select=id,name,brand,serving_unit&order=name.asc" }),
       supabaseRequest("meal_plans", { query: `?select=id&week_start=eq.${weekStart}&user_id=is.null&limit=1` })
     ]);
 
     data.recipes = recipes;
+    data.foods = foods;
     currentMealPlanId = plans.length ? plans[0].id : null;
 
-    let items = [];
+    let rawItems = [];
     if (currentMealPlanId) {
-      items = await supabaseRequest("meal_plan_items", {
-        query: `?select=day,meal_type,recipe_id&meal_plan_id=eq.${currentMealPlanId}&recipe_id=not.is.null`
+      rawItems = await supabaseRequest("meal_plan_items", {
+        query: `?select=id,day,meal_type,recipe_id,food_id,quantity&meal_plan_id=eq.${currentMealPlanId}`
       });
     }
 
     data.week = {};
-    items.forEach(item => {
-      if (!data.week[item.day]) data.week[item.day] = {};
-      data.week[item.day][item.meal_type] = item.recipe_id;
+    rawItems.forEach(raw => {
+      let item;
+      if (raw.recipe_id) {
+        const recipe = data.recipes.find(r => r.id === raw.recipe_id);
+        item = {
+          id: raw.id, tag: raw.meal_type, type: "recipe", refId: raw.recipe_id,
+          quantity: raw.quantity,
+          name: recipe ? recipe.name : "(deleted recipe)",
+          sub: recipe && recipe.cooking_time_minutes ? `${recipe.cooking_time_minutes} mins` : ""
+        };
+      } else if (raw.food_id) {
+        const food = data.foods.find(f => f.id === raw.food_id);
+        item = {
+          id: raw.id, tag: raw.meal_type, type: "food", refId: raw.food_id,
+          quantity: raw.quantity,
+          name: food ? food.name : "(deleted food)",
+          sub: food ? (food.brand || food.serving_unit || "") : ""
+        };
+      } else {
+        return;
+      }
+      if (!data.week[raw.day]) data.week[raw.day] = [];
+      data.week[raw.day].push(item);
     });
 
     renderWeek();
@@ -130,37 +189,142 @@ async function loadAll() {
   }
 }
 
+// ---------- Rendering ----------
+
 function renderWeek() {
   const weekDates = getWeekDates();
   document.getElementById("weekGrid").innerHTML = weekDates.map(({ dayName, iso, display }) => {
-    const meals = data.week[iso] || {};
+    const items = sortItems(data.week[iso] || []);
     return `<div class="card day">
       <div class="day-head"><div class="day-name">${dayName}</div><div class="day-date">${display}</div></div>
-      ${mealTypes.map(type => {
-        const recipe = data.recipes.find(r => r.id === meals[type]);
-        return recipe
-          ? `<div class="meal-slot"><button class="remove-meal" onclick="removeMeal('${iso}','${type}')">×</button><div class="slot-label">${type}</div><div class="meal-name">${esc(recipe.name)}</div></div>`
-          : `<button class="meal-slot empty" onclick="openMealPicker('${iso}','${type}','${dayName}')"><span>＋ ${type}</span></button>`;
-      }).join("")}
+      ${items.length ? items.map(item => `
+        <div class="item-row">
+          <div class="item-main">
+            ${item.tag ? `<div class="tag-badge">${esc(item.tag)}</div>` : ""}
+            <div class="item-name">${item.type === "recipe" ? "🍳" : "🥫"} ${esc(item.name)}${item.quantity && item.quantity != 1 ? ` ×${esc(String(item.quantity))}` : ""}</div>
+            ${item.sub ? `<div class="item-sub">${esc(item.sub)}</div>` : ""}
+          </div>
+          <button class="remove-item" onclick="removeItem('${item.id}')">×</button>
+        </div>
+      `).join("") : `<div class="no-items">Nothing planned yet.</div>`}
+      <button class="add-day-btn" onclick="openAddModal('${iso}','${dayName}')">＋ Add</button>
     </div>`;
   }).join("");
 }
 
-function openMealPicker(iso, type, dayName) {
-  document.getElementById("modal").innerHTML = `<h2>Add ${type}</h2><p class="meta">${dayName}</p><div class="meal-picker">${
-    data.recipes.map(r => `<button onclick="chooseMeal('${iso}','${type}','${r.id}')">${esc(r.name)}<br><small>${r.cooking_time_minutes || "?"} mins</small></button>`).join("")
-    || "<p>No recipes yet — add some on the Recipes page.</p>"
-  }</div><div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button></div>`;
+// ---------- Add-item modal ----------
+
+function openAddModal(iso, dayName) {
+  addModalIso = iso;
+  addModalDayName = dayName;
+  addType = "recipe";
+
+  document.getElementById("modal").innerHTML = `
+    <h2>Add to ${dayName}</h2>
+    <p class="meta">Pick a recipe or food, tag it, then choose it from the list below to add it.</p>
+
+    <div class="type-toggle">
+      <button type="button" class="type-btn active" id="typeBtnRecipe" onclick="switchAddType('recipe')">🍳 Recipe</button>
+      <button type="button" class="type-btn" id="typeBtnFood" onclick="switchAddType('food')">🥫 Food</button>
+    </div>
+
+    <div class="tag-quantity-row">
+      <div class="field">
+        <label>Tag</label>
+        <input id="addTag" list="tagOptions" placeholder="e.g. Breakfast">
+        <datalist id="tagOptions">
+          <option value="Breakfast"><option value="Lunch"><option value="Dinner"><option value="Snack">
+        </datalist>
+      </div>
+      <div class="field">
+        <label>Quantity</label>
+        <input id="addQuantity" type="number" step="any" min="0" value="1">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Search</label>
+      <input id="addSearch" placeholder="Type to search…" oninput="renderAddOptions()">
+    </div>
+
+    <div id="addOptions" class="add-options"></div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Close</button>
+    </div>
+  `;
+
+  renderAddOptions();
   document.getElementById("modalBackdrop").classList.add("open");
 }
 
-// Finds this week's meal_plans row, or creates it the first time it's needed.
+function switchAddType(type) {
+  addType = type;
+  document.getElementById("typeBtnRecipe").classList.toggle("active", type === "recipe");
+  document.getElementById("typeBtnFood").classList.toggle("active", type === "food");
+  document.getElementById("addSearch").value = "";
+  renderAddOptions();
+}
+
+function renderAddOptions() {
+  const term = document.getElementById("addSearch").value.trim().toLowerCase();
+  const source = addType === "recipe" ? data.recipes : data.foods;
+
+  const filtered = source.filter(x => x.name.toLowerCase().includes(term));
+  const box = document.getElementById("addOptions");
+
+  if (!filtered.length) {
+    box.innerHTML = `<div class="empty-state">${source.length ? "No matches." : `No ${addType}s yet — add some on the ${addType === "recipe" ? "Recipes" : "Foods"} page.`}</div>`;
+    return;
+  }
+
+  box.innerHTML = filtered.map(x => `
+    <div class="add-option" onclick="confirmAddItem('${x.id}')">
+      <div>${esc(x.name)}</div>
+      <div class="sub">${addType === "recipe" ? (x.cooking_time_minutes ? x.cooking_time_minutes + " mins" : "") : (x.brand || x.serving_unit || "")}</div>
+    </div>
+  `).join("");
+}
+
+async function confirmAddItem(refId) {
+  const tag = document.getElementById("addTag").value.trim() || "Meal";
+  const quantityRaw = document.getElementById("addQuantity").value;
+  const quantity = quantityRaw === "" ? 1 : Number(quantityRaw);
+
+  try {
+    const planId = await ensureMealPlan();
+    const body = { meal_plan_id: planId, day: addModalIso, meal_type: tag, quantity };
+    if (addType === "recipe") body.recipe_id = refId; else body.food_id = refId;
+
+    await supabaseRequest("meal_plan_items", { method: "POST", body });
+    closeModal();
+    await loadAll();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't add that to the plan. Check the browser console for details.");
+  }
+}
+
+async function removeItem(itemId) {
+  try {
+    await supabaseRequest("meal_plan_items", {
+      method: "DELETE",
+      query: `?id=eq.${itemId}`,
+      prefer: "return=minimal"
+    });
+    await loadAll();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't remove that item. Check the browser console for details.");
+  }
+}
+
+// ---------- Meal plan row (lazy-created) ----------
+
 async function ensureMealPlan() {
   if (currentMealPlanId) return currentMealPlanId;
 
   const weekStart = getWeekDates()[0].iso;
-
-  // Guard against a plan having been created by another tab/request in the meantime.
   const existing = await supabaseRequest("meal_plans", {
     query: `?select=id&week_start=eq.${weekStart}&user_id=is.null&limit=1`
   });
@@ -177,48 +341,10 @@ async function ensureMealPlan() {
   return currentMealPlanId;
 }
 
-async function chooseMeal(iso, type, recipeId) {
-  closeModal();
-  try {
-    const planId = await ensureMealPlan();
-    // A slot holds at most one item, so clear anything already there first.
-    await supabaseRequest("meal_plan_items", {
-      method: "DELETE",
-      query: `?meal_plan_id=eq.${planId}&day=eq.${iso}&meal_type=eq.${type}`,
-      prefer: "return=minimal"
-    });
-    await supabaseRequest("meal_plan_items", {
-      method: "POST",
-      body: { meal_plan_id: planId, day: iso, meal_type: type, recipe_id: recipeId, quantity: 1 }
-    });
-    await loadAll();
-  } catch (error) {
-    console.error(error);
-    alert("Couldn't save that to the plan. Check the browser console for details.");
-    await loadAll(); // resync with whatever the database actually has
-  }
-}
-
-async function removeMeal(iso, type) {
-  if (!currentMealPlanId) return;
-  try {
-    await supabaseRequest("meal_plan_items", {
-      method: "DELETE",
-      query: `?meal_plan_id=eq.${currentMealPlanId}&day=eq.${iso}&meal_type=eq.${type}`,
-      prefer: "return=minimal"
-    });
-    await loadAll();
-  } catch (error) {
-    console.error(error);
-    alert("Couldn't remove that meal. Check the browser console for details.");
-  }
-}
-
 async function clearWeek() {
-  if (!confirm("Clear all meals from this week?")) return;
+  if (!confirm("Clear all items from this week?")) return;
   try {
     if (currentMealPlanId) {
-      // Deleting the meal_plans row cascades to delete its meal_plan_items too.
       await supabaseRequest("meal_plans", {
         method: "DELETE",
         query: `?id=eq.${currentMealPlanId}`,
