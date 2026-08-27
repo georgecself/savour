@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savour — Foods</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:18px; }
+  .toolbar input { flex:1; max-width:320px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .table-card { padding:0; overflow-x:auto; }
+  .food-table { width:100%; border-collapse:collapse; min-width:820px; }
+  .food-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  .food-table td { padding:12px 14px; border-bottom:1px solid #f0f0ed; font-size:14px; white-space:nowrap; }
+  .food-table td.wrap { white-space:normal; }
+  .food-table .num { color:#5a5c56; }
+  .actions { display:flex; gap:7px; }
+  .empty-state { color:var(--muted); padding:30px; text-align:center; }
+
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.38); align-items:center; justify-content:center; padding:20px; z-index:10; }
+  .modal-backdrop.open { display:flex; }
+  .modal { width:min(640px,100%); max-height:90vh; overflow:auto; background:white; border-radius:20px; padding:24px; }
+  .modal h2 { margin-top:0; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .field { margin-bottom:13px; }
+  .field.full { grid-column:1 / -1; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .field input, .field select { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:white; box-sizing:border-box; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
+  .section-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:16px 0 8px; grid-column:1/-1; }
+
+  @media(max-width:650px){ .form-grid{grid-template-columns:1fr} .field.full{grid-column:auto} }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>Savour</h1>
+    <p>Plan your week. Know what to buy. Waste less.</p>
+  </div>
+  <nav class="nav">
+    <a href="index.html">📅 Week</a>
+    <a href="recipes.html">🍳 Recipes</a>
+    <a href="ingredients.html">🥕 Ingredients</a>
+    <a href="foods.html" class="active">🥫 Foods</a>
+  </nav>
+</header>
+
+<main>
+<section id="foods" class="view active">
+  <div class="section-head"><h2>Foods</h2><button class="btn primary" id="addFoodBtn">＋ Add food</button></div>
+  <p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
+    Individual items you buy and eat as-is — protein bars, yoghurt, bananas — as opposed to recipe ingredients.
+  </p>
+  <div class="toolbar">
+    <input id="searchInput" placeholder="Search foods…">
+  </div>
+  <div class="card table-card">
+    <div id="foodTable"></div>
+  </div>
+</section>
+</main>
+</div>
+
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Add food</h2>
+
+    <div class="form-grid">
+      <div class="field full">
+        <label>Name</label>
+        <input id="foodName" placeholder="e.g. Grenade Protein Bar">
+      </div>
+      <div class="field">
+        <label>Brand</label>
+        <input id="foodBrand" placeholder="Optional">
+      </div>
+      <div class="field">
+        <label>Shopping category</label>
+        <select id="foodCategory">
+          <option>Meat</option>
+          <option>Fruit & Veg</option>
+          <option>Dairy</option>
+          <option>Tinned & Dry</option>
+          <option>Frozen</option>
+          <option>Snacks</option>
+          <option>Drinks</option>
+          <option>Herbs & Spices</option>
+          <option selected>Other</option>
+        </select>
+      </div>
+
+      <div class="section-label">Serving</div>
+      <div class="field">
+        <label>Serving size</label>
+        <input id="foodServingSize" type="number" step="any" min="0" placeholder="e.g. 60">
+      </div>
+      <div class="field">
+        <label>Serving unit</label>
+        <input id="foodServingUnit" placeholder="e.g. g, bar, ml">
+      </div>
+
+      <div class="section-label">Nutrition (per serving, optional)</div>
+      <div class="field">
+        <label>Calories</label>
+        <input id="foodCalories" type="number" step="any" min="0">
+      </div>
+      <div class="field">
+        <label>Protein (g)</label>
+        <input id="foodProtein" type="number" step="any" min="0">
+      </div>
+      <div class="field">
+        <label>Carbohydrates (g)</label>
+        <input id="foodCarbs" type="number" step="any" min="0">
+      </div>
+      <div class="field">
+        <label>Fat (g)</label>
+        <input id="foodFat" type="number" step="any" min="0">
+      </div>
+
+      <div class="section-label">Shopping</div>
+      <div class="field full">
+        <label>Price</label>
+        <input id="foodPrice" type="number" step="any" min="0" placeholder="Optional">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancel</button>
+      <button class="btn primary" id="saveBtn">Save food</button>
+    </div>
+  </div>
+</div>
+
+<div id="status" class="status">Connecting to Supabase…</div>
+
+<script src="js/supabase.js"></script>
+<script src="js/foods.js"></script>
+</body>
+</html>
