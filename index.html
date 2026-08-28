@@ -85,7 +85,15 @@
 
 <main>
 <section id="week" class="view active">
-  <div class="section-head"><h2>This Week</h2><button class="btn primary" onclick="clearWeek()">Clear week</button></div>
+  <div class="section-head">
+    <h2 id="weekHeading">This Week</h2>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn" onclick="navigateWeek(-1)">◀</button>
+      <button class="btn" onclick="jumpToToday()">Today</button>
+      <button class="btn" onclick="navigateWeek(1)">▶</button>
+      <button class="btn" onclick="clearWeek()">Clear week</button>
+    </div>
+  </div>
   <div id="weekGrid" class="week-grid"></div>
 </section>
 </main>
@@ -111,12 +119,24 @@ const data = { recipes: [], foods: [], week: {} };
 let currentMealPlanId = null;
 let loading = false;
 
+function getMondayOf(date) {
+  const day = date.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+let viewedMonday = getMondayOf(new Date()); // which week the planner is currently showing
+
 // Add-item modal state
 let addModalIso = null;
 let addModalDayName = null;
 let addType = "recipe";
 let addCookMode = "fresh"; // "fresh" | "leftover" — recipes only
 let pendingAddSelection = null; // { id, name, sub } once picked, before confirming
+let pendingEligibleBatches = []; // fetched live, across ALL weeks, once a recipe is picked
 
 // Mark-as-cooked/eaten modal state
 let pendingMarkItemId = null;
@@ -134,17 +154,17 @@ function isoDate(d) {
 }
 
 function getWeekDates() {
-  const now = new Date();
-  const day = now.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday);
-
   return dayNames.map((name, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    const d = new Date(viewedMonday);
+    d.setDate(viewedMonday.getDate() + i);
     return { dayName: name, iso: isoDate(d), display: d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) };
   });
+}
+
+function formatDateLabel(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }
 
 function sortItems(items) {
@@ -241,6 +261,7 @@ async function loadAll() {
 // ---------- Rendering ----------
 
 function renderWeek() {
+  updateWeekHeading();
   const weekDates = getWeekDates();
   const isoToDay = Object.fromEntries(weekDates.map(d => [d.iso, d.dayName]));
 
@@ -252,6 +273,25 @@ function renderWeek() {
       <button class="add-day-btn" onclick="openAddModal('${iso}','${dayName}')">＋ Add</button>
     </div>`;
   }).join("");
+}
+
+function updateWeekHeading() {
+  const weekDates = getWeekDates();
+  const isCurrentWeek = isoDate(viewedMonday) === isoDate(getMondayOf(new Date()));
+  const rangeLabel = `${weekDates[0].display} – ${weekDates[6].display}`;
+  document.getElementById("weekHeading").textContent = isCurrentWeek ? `This Week (${rangeLabel})` : rangeLabel;
+}
+
+async function navigateWeek(delta) {
+  viewedMonday.setDate(viewedMonday.getDate() + delta * 7);
+  currentMealPlanId = null; // the previous week's plan id no longer applies
+  await loadAll();
+}
+
+async function jumpToToday() {
+  viewedMonday = getMondayOf(new Date());
+  currentMealPlanId = null;
+  await loadAll();
 }
 
 function renderItemRow(item, isoToDay) {
@@ -306,17 +346,20 @@ function openAddModal(iso, dayName) {
   document.getElementById("modalBackdrop").classList.add("open");
 }
 
-function findEligibleBatches(recipeId) {
-  const isoToDay = Object.fromEntries(getWeekDates().map(d => [d.iso, d.dayName]));
-  const batches = [];
-  Object.entries(data.week).forEach(([iso, items]) => {
-    items.forEach(item => {
-      if (item.type === "recipe" && item.refId === recipeId && !item.leftoverOf) {
-        batches.push({ id: item.id, label: `${isoToDay[iso] || iso} — ${item.portionsMade || "?"} portions made` });
-      }
-    });
+async function fetchEligibleBatches(recipeId) {
+  // Cross-week: search all of the user's recent cook entries for this recipe,
+  // not just whatever week is currently on screen.
+  const plans = await supabaseRequest("meal_plans", {
+    query: `?select=id&user_id=eq.${window.currentUserId}&order=week_start.desc&limit=8`
   });
-  return batches;
+  if (!plans.length) return [];
+
+  const planIds = plans.map(p => `"${p.id}"`).join(",");
+  const items = await supabaseRequest("meal_plan_items", {
+    query: `?select=id,day,portions_made&recipe_id=eq.${recipeId}&leftover_of=is.null&meal_plan_id=in.(${planIds})&order=day.desc&limit=15`
+  });
+
+  return items.map(i => ({ id: i.id, label: `${formatDateLabel(i.day)} — ${i.portions_made || "?"} portions made` }));
 }
 
 function renderAddModal() {
@@ -346,7 +389,7 @@ function renderAddModal() {
   }
 
   const isRecipe = addType === "recipe";
-  const eligibleBatches = isRecipe ? findEligibleBatches(pendingAddSelection.id) : [];
+  const eligibleBatches = isRecipe ? pendingEligibleBatches : [];
   const isLeftover = isRecipe && addCookMode === "leftover";
   const recipeInfo = isRecipe ? data.recipes.find(r => r.id === pendingAddSelection.id) : null;
 
@@ -431,7 +474,7 @@ function renderAddOptions() {
   `).join("");
 }
 
-function selectAddItem(refId) {
+async function selectAddItem(refId) {
   const source = addType === "recipe" ? data.recipes : data.foods;
   const item = source.find(x => x.id === refId);
   if (!item) return;
@@ -444,6 +487,18 @@ function selectAddItem(refId) {
       ? (item.cooking_time_minutes ? `${item.cooking_time_minutes} mins` : "")
       : (item.brand || item.serving_unit || "")
   };
+  pendingEligibleBatches = [];
+
+  if (addType === "recipe") {
+    document.getElementById("modal").innerHTML = `<h2>Loading…</h2>`;
+    try {
+      pendingEligibleBatches = await fetchEligibleBatches(item.id);
+    } catch (error) {
+      console.error(error);
+      pendingEligibleBatches = [];
+    }
+  }
+
   renderAddModal();
 }
 
@@ -567,18 +622,32 @@ async function saveEditItem(itemId) {
 }
 
 async function removeItem(itemId) {
-  // Warn if other entries this week reference this as their batch —
+  // Warn if entries anywhere (any week) reference this as their batch —
   // deleting it will detach them (the DB does this via ON DELETE SET NULL).
-  const dependents = [];
-  Object.values(data.week).forEach(items => {
-    items.forEach(i => { if (i.leftoverOf === itemId) dependents.push(i); });
-  });
+  const item = findItemById(itemId);
+  let dependentCount = 0;
 
-  if (dependents.length) {
-    const n = dependents.length;
-    const proceed = confirm(`This has ${n} leftover ${n === 1 ? "entry" : "entries"} linked to it elsewhere this week. Removing it will detach ${n === 1 ? "that entry" : "those entries"} from the batch. Continue?`);
+  if (item && item.type === "recipe" && !item.leftoverOf) {
+    try {
+      const dependents = await supabaseRequest("meal_plan_items", { query: `?select=id&leftover_of=eq.${itemId}` });
+      dependentCount = dependents.length;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  if (dependentCount) {
+    const proceed = confirm(`This has ${dependentCount} leftover ${dependentCount === 1 ? "entry" : "entries"} linked to it (possibly in other weeks). Removing it will detach ${dependentCount === 1 ? "that entry" : "those entries"} from the batch. Continue?`);
     if (!proceed) return;
   }
+
+  // Only entries loaded in the CURRENTLY VIEWED week can be patched locally —
+  // any in other weeks will already be correct in the database and will
+  // simply reflect that next time that week is opened.
+  const localDependents = [];
+  Object.values(data.week).forEach(items => {
+    items.forEach(i => { if (i.leftoverOf === itemId) localDependents.push(i); });
+  });
 
   try {
     await supabaseRequest("meal_plan_items", {
@@ -587,7 +656,7 @@ async function removeItem(itemId) {
       prefer: "return=minimal"
     });
 
-    dependents.forEach(d => { d.leftoverOf = null; });
+    localDependents.forEach(d => { d.leftoverOf = null; });
 
     for (const iso in data.week) {
       const idx = data.week[iso].findIndex(i => i.id === itemId);
