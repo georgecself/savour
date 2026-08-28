@@ -90,9 +90,9 @@ async function loadShoppingList() {
       supabaseRequest("pantry_items", { query: `?select=ingredient_id,food_id,quantity,unit&user_id=eq.${window.currentUserId}` })
     ]);
 
-    const { buyRows, coveredRows } = applyPantry(ingredientRows, foodRows, pantryItems);
+    const { buyRows, coveredRows, reminderRows } = applyPantry(ingredientRows, foodRows, pantryItems);
 
-    render(buyRows, coveredRows);
+    render(buyRows, coveredRows, reminderRows);
     setDbStatus("Connected to Supabase");
   } catch (error) {
     console.error(error);
@@ -109,7 +109,7 @@ async function loadIngredientContributions(recipeItems) {
   const encoded = recipeIds.map(id => `"${id}"`).join(",");
 
   const recipeIngredients = await supabaseRequest("recipe_ingredients", {
-    query: `?select=recipe_id,ingredient_id,quantity,unit,ingredients(id,name,category)&recipe_id=in.(${encoded})`
+    query: `?select=recipe_id,ingredient_id,quantity,unit,ingredients(id,name,category,is_staple)&recipe_id=in.(${encoded})`
   });
 
   // Group recipe_ingredients by recipe_id for quick lookup.
@@ -136,7 +136,8 @@ async function loadIngredientContributions(recipeItems) {
           category: ri.ingredients.category || "Other",
           unit,
           qtySum: 0,
-          hasUnspecified: false
+          hasUnspecified: false,
+          isStaple: !!ri.ingredients.is_staple
         };
       }
       if (ri.quantity !== null && ri.quantity !== undefined) {
@@ -182,9 +183,11 @@ async function loadFoodContributions(foodItems) {
 function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
   const pantryIngredientMap = {}; // ingredientId::unit -> qty
   const pantryFoodMap = {}; // foodId -> qty
+  const trackedIngredientIds = new Set(); // ingredients with ANY pantry entry, any unit
 
   pantryItems.forEach(p => {
     if (p.ingredient_id) {
+      trackedIngredientIds.add(p.ingredient_id);
       const key = `${p.ingredient_id}::${p.unit || ""}`;
       pantryIngredientMap[key] = (pantryIngredientMap[key] || 0) + (p.quantity || 0);
     } else if (p.food_id) {
@@ -194,8 +197,20 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
 
   const buyRows = [];
   const coveredRows = [];
+  const reminderRows = []; // staples with no pantry tracking — "you should have"
 
   ingredientRowsRaw.forEach(row => {
+    // Staple, and never actually logged in the Pantry — treat as a nudge to
+    // check the cupboard rather than a firm buy-list item.
+    if (row.isStaple && !trackedIngredientIds.has(row.ingredientId)) {
+      reminderRows.push({
+        icon: "🧂", category: row.category, label: row.label,
+        qtyLabel: row.qtySum > 0 ? `needs ${formatQty(row.qtySum)}${row.unit ? " " + row.unit : ""}` : "amount not specified",
+        key: `ing:${row.ingredientId}:${row.unit}`
+      });
+      return;
+    }
+
     const key = `${row.ingredientId}::${row.unit}`;
     const owned = pantryIngredientMap[key] || 0;
 
@@ -249,11 +264,11 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
     });
   });
 
-  return { buyRows, coveredRows };
+  return { buyRows, coveredRows, reminderRows };
 }
 
-function render(buyRows, coveredRows) {
-  const allRows = [...buyRows, ...coveredRows];
+function render(buyRows, coveredRows, reminderRows) {
+  const allRows = [...buyRows, ...coveredRows, ...reminderRows];
 
   if (!allRows.length) {
     renderEmpty();
@@ -262,8 +277,8 @@ function render(buyRows, coveredRows) {
 
   if (!buyRows.length) {
     document.getElementById("listContainer").innerHTML =
-      `<div class="empty-state">Everything planned this week is already covered by your pantry. 🎉</div>` + renderCoveredSection(coveredRows);
-    renderSummary(buyRows, coveredRows);
+      `<div class="empty-state">Everything planned this week is already covered.  🎉</div>` + renderReminderSection(reminderRows) + renderCoveredSection(coveredRows);
+    renderSummary(buyRows, coveredRows, reminderRows);
     return;
   }
 
@@ -299,8 +314,25 @@ function render(buyRows, coveredRows) {
     `;
   }).join("");
 
-  document.getElementById("listContainer").innerHTML = buyHtml + renderCoveredSection(coveredRows);
-  renderSummary(buyRows, coveredRows);
+  document.getElementById("listContainer").innerHTML = buyHtml + renderReminderSection(reminderRows) + renderCoveredSection(coveredRows);
+  renderSummary(buyRows, coveredRows, reminderRows);
+}
+
+function renderReminderSection(reminderRows) {
+  if (!reminderRows.length) return "";
+  return `
+    <div class="category">
+      <h3>🧂 You should have these — worth checking</h3>
+      <div class="card category-card">
+        ${reminderRows.map(row => `
+          <div class="shop-row">
+            <div class="shop-label"><span class="shop-icon">${row.icon}</span>${esc(row.label)}</div>
+            <div class="shop-qty">${esc(row.qtyLabel)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderCoveredSection(coveredRows) {
@@ -320,12 +352,13 @@ function renderCoveredSection(coveredRows) {
   `;
 }
 
-function renderSummary(buyRows, coveredRows) {
+function renderSummary(buyRows, coveredRows, reminderRows) {
   const totalCost = buyRows.reduce((sum, r) => sum + (r.price || 0), 0);
   const summary = document.getElementById("summaryBar");
   summary.innerHTML = `
     <div class="summary-pill">${buyRows.length} to buy</div>
     ${coveredRows.length ? `<div class="summary-pill">${coveredRows.length} covered by pantry</div>` : ""}
+    ${reminderRows.length ? `<div class="summary-pill">🧂 ${reminderRows.length} staples to check</div>` : ""}
     ${totalCost > 0 ? `<div class="summary-pill">Est. £${totalCost.toFixed(2)}</div>` : ""}
     <div class="summary-note">Cost estimate covers priced foods only — recipe ingredients aren't priced yet.</div>
   `;
