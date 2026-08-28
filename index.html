@@ -25,6 +25,9 @@
   .no-items { color:var(--muted); font-size:12px; padding:8px 2px 4px; }
   .add-day-btn { margin-top:auto; width:100%; border:1px dashed #d1d2cc; background:transparent; border-radius:10px; padding:9px; color:#7a7c74; font-size:13px; cursor:pointer; }
   .add-day-btn:hover { background:#fcfcfb; }
+  .mark-btn { margin-top:6px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent-dark); font-size:11px; padding:4px 9px; border-radius:7px; cursor:pointer; }
+  .mark-btn:hover { filter:brightness(0.96); }
+  .applied-note { color:#2e7d4f; font-weight:600; margin-top:5px; }
 
   .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.38); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
@@ -36,10 +39,11 @@
   .type-toggle { display:flex; gap:8px; margin-bottom:14px; }
   .type-btn { flex:1; border:1px solid var(--line); background:white; border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
   .type-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
+  .type-btn:disabled { opacity:.45; cursor:default; }
 
   .field { margin-bottom:13px; }
   .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
-  .field input { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:white; box-sizing:border-box; }
+  .field input, .field select { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:white; box-sizing:border-box; }
   .tag-quantity-row { display:grid; grid-template-columns:2fr 1fr; gap:10px; }
 
   .add-options { max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
@@ -51,6 +55,12 @@
 
   .selection-banner { background:var(--accent-soft); color:var(--accent-dark); border-radius:10px; padding:10px 14px; font-size:14px; font-weight:600; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
   .selection-banner button { border:0; background:transparent; color:var(--accent-dark); font-size:12px; text-decoration:underline; cursor:pointer; }
+
+  .mark-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #f0f0ed; }
+  .mark-row:last-child { border-bottom:0; }
+  .mark-row-name { flex:1; font-size:14px; }
+  .mark-row input { width:90px; padding:8px; border:1px solid var(--line); border-radius:8px; text-align:right; }
+  .mark-row-unit { width:50px; font-size:12px; color:var(--muted); }
 
   @media(max-width:900px){.week-grid{grid-template-columns:repeat(4,1fr)}}
   @media(max-width:650px){.week-grid{grid-template-columns:1fr}.tag-quantity-row{grid-template-columns:1fr}}
@@ -92,7 +102,11 @@
 <script src="js/auth-guard.js"></script>
 <script>
 // data.week is keyed by ISO date ("2026-08-31") -> an array of items.
-// Each item: { id, tag, type: 'recipe'|'food', refId, quantity, name, sub }
+// Each item: { id, tag, type: 'recipe'|'food', refId, name, sub,
+//              quantity (foods only),
+//              portionsMade (recipe "cook" entries only),
+//              leftoverOf, portionsEaten (recipe "leftover" entries only),
+//              pantryAppliedAt }
 const data = { recipes: [], foods: [], week: {} };
 let currentMealPlanId = null;
 let loading = false;
@@ -101,7 +115,12 @@ let loading = false;
 let addModalIso = null;
 let addModalDayName = null;
 let addType = "recipe";
+let addCookMode = "fresh"; // "fresh" | "leftover" — recipes only
 let pendingAddSelection = null; // { id, name, sub } once picked, before confirming
+
+// Mark-as-cooked/eaten modal state
+let pendingMarkItemId = null;
+let pendingMarkRows = null; // [{ ingredientId|foodId, name, unit, suggestedQty }]
 
 const dayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const tagOrder = ["Breakfast","Lunch","Dinner","Snack"];
@@ -138,6 +157,21 @@ function sortItems(items) {
   });
 }
 
+function findItemById(itemId) {
+  for (const iso in data.week) {
+    const found = data.week[iso].find(i => i.id === itemId);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findIsoForItem(itemId) {
+  for (const iso in data.week) {
+    if (data.week[iso].some(i => i.id === itemId)) return iso;
+  }
+  return null;
+}
+
 // ---------- Loading ----------
 
 async function loadAll() {
@@ -148,7 +182,7 @@ async function loadAll() {
     const weekStart = getWeekDates()[0].iso;
 
     const [recipes, foods, plans] = await Promise.all([
-      supabaseRequest("recipes", { query: `?select=id,name,cooking_time_minutes&user_id=eq.${window.currentUserId}&order=name.asc` }),
+      supabaseRequest("recipes", { query: `?select=id,name,servings,cooking_time_minutes&user_id=eq.${window.currentUserId}&order=name.asc` }),
       supabaseRequest("foods", { query: `?select=id,name,brand,serving_unit&user_id=eq.${window.currentUserId}&order=name.asc` }),
       supabaseRequest("meal_plans", { query: `?select=id&week_start=eq.${weekStart}&user_id=eq.${window.currentUserId}&limit=1` })
     ]);
@@ -160,7 +194,7 @@ async function loadAll() {
     let rawItems = [];
     if (currentMealPlanId) {
       rawItems = await supabaseRequest("meal_plan_items", {
-        query: `?select=id,day,meal_type,recipe_id,food_id,quantity&meal_plan_id=eq.${currentMealPlanId}`
+        query: `?select=id,day,meal_type,recipe_id,food_id,quantity,portions_made,portions_eaten,leftover_of,pantry_applied_at&meal_plan_id=eq.${currentMealPlanId}`
       });
     }
 
@@ -171,9 +205,12 @@ async function loadAll() {
         const recipe = data.recipes.find(r => r.id === raw.recipe_id);
         item = {
           id: raw.id, tag: raw.meal_type, type: "recipe", refId: raw.recipe_id,
-          quantity: raw.quantity,
           name: recipe ? recipe.name : "(deleted recipe)",
-          sub: recipe && recipe.cooking_time_minutes ? `${recipe.cooking_time_minutes} mins` : ""
+          sub: recipe && recipe.cooking_time_minutes ? `${recipe.cooking_time_minutes} mins` : "",
+          portionsMade: raw.portions_made,
+          leftoverOf: raw.leftover_of,
+          portionsEaten: raw.portions_eaten,
+          pantryAppliedAt: raw.pantry_applied_at
         };
       } else if (raw.food_id) {
         const food = data.foods.find(f => f.id === raw.food_id);
@@ -181,7 +218,8 @@ async function loadAll() {
           id: raw.id, tag: raw.meal_type, type: "food", refId: raw.food_id,
           quantity: raw.quantity,
           name: food ? food.name : "(deleted food)",
-          sub: food ? (food.brand || food.serving_unit || "") : ""
+          sub: food ? (food.brand || food.serving_unit || "") : "",
+          pantryAppliedAt: raw.pantry_applied_at
         };
       } else {
         return;
@@ -204,44 +242,88 @@ async function loadAll() {
 
 function renderWeek() {
   const weekDates = getWeekDates();
+  const isoToDay = Object.fromEntries(weekDates.map(d => [d.iso, d.dayName]));
+
   document.getElementById("weekGrid").innerHTML = weekDates.map(({ dayName, iso, display }) => {
     const items = sortItems(data.week[iso] || []);
     return `<div class="card day">
       <div class="day-head"><div class="day-name">${dayName}</div><div class="day-date">${display}</div></div>
-      ${items.length ? items.map(item => `
-        <div class="item-row">
-          <div class="item-main">
-            <div class="tag-badge" title="Click to edit tag/quantity" onclick="openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
-            <div class="item-name">${item.type === "recipe" ? "🍳" : "🥫"} ${esc(item.name)}${item.quantity && item.quantity != 1 ? ` ×${esc(String(item.quantity))}` : ""}</div>
-            ${item.sub ? `<div class="item-sub">${esc(item.sub)}</div>` : ""}
-          </div>
-          <div class="item-actions">
-            <button class="edit-item" title="Edit tag/quantity" onclick="openEditModal('${item.id}')">✏️</button>
-            <button class="remove-item" title="Remove" onclick="removeItem('${item.id}')">×</button>
-          </div>
-        </div>
-      `).join("") : `<div class="no-items">Nothing planned yet.</div>`}
+      ${items.length ? items.map(item => renderItemRow(item, isoToDay)).join("") : `<div class="no-items">Nothing planned yet.</div>`}
       <button class="add-day-btn" onclick="openAddModal('${iso}','${dayName}')">＋ Add</button>
     </div>`;
   }).join("");
 }
 
-// ---------- Add-item modal (pick first, THEN tag/quantity, THEN confirm) ----------
+function renderItemRow(item, isoToDay) {
+  const isLeftover = item.type === "recipe" && item.leftoverOf;
+  let subLabel = item.sub;
+  let qtyLabel = "";
+
+  if (item.type === "recipe") {
+    if (isLeftover) {
+      const sourceIso = findIsoForItem(item.leftoverOf);
+      const dayLabel = sourceIso ? isoToDay[sourceIso] : null;
+      subLabel = `Leftovers${dayLabel ? " from " + dayLabel + "'s batch" : ""}`;
+      qtyLabel = ` — ${item.portionsEaten || 1} portion${(item.portionsEaten || 1) == 1 ? "" : "s"}`;
+    } else {
+      qtyLabel = ` — makes ${item.portionsMade || "?"} portions`;
+    }
+  } else if (item.quantity && item.quantity != 1) {
+    qtyLabel = ` ×${item.quantity}`;
+  }
+
+  const showMarkAction = !isLeftover; // leftovers don't trigger a new pantry deduction
+  const markLabel = item.type === "recipe" ? "cooked" : "eaten";
+
+  return `
+    <div class="item-row">
+      <div class="item-main">
+        <div class="tag-badge" title="Click to edit" onclick="openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
+        <div class="item-name">${item.type === "recipe" ? "🍳" : "🥫"} ${esc(item.name)}${qtyLabel}</div>
+        ${subLabel ? `<div class="item-sub">${esc(subLabel)}</div>` : ""}
+        ${showMarkAction ? (item.pantryAppliedAt
+          ? `<div class="item-sub applied-note">✓ Marked ${markLabel} — pantry updated</div>`
+          : `<button class="mark-btn" onclick="${item.type === "recipe" ? `openMarkCookedModal('${item.id}')` : `openMarkEatenModal('${item.id}')`}">🍽 Mark as ${markLabel}</button>`
+        ) : ""}
+      </div>
+      <div class="item-actions">
+        <button class="edit-item" title="Edit" onclick="openEditModal('${item.id}')">✏️</button>
+        <button class="remove-item" title="Remove" onclick="removeItem('${item.id}')">×</button>
+      </div>
+    </div>
+  `;
+}
+
+// ---------- Add-item modal (pick first, THEN details, THEN confirm) ----------
 
 function openAddModal(iso, dayName) {
   addModalIso = iso;
   addModalDayName = dayName;
   addType = "recipe";
+  addCookMode = "fresh";
   pendingAddSelection = null;
   renderAddModal();
   document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function findEligibleBatches(recipeId) {
+  const isoToDay = Object.fromEntries(getWeekDates().map(d => [d.iso, d.dayName]));
+  const batches = [];
+  Object.entries(data.week).forEach(([iso, items]) => {
+    items.forEach(item => {
+      if (item.type === "recipe" && item.refId === recipeId && !item.leftoverOf) {
+        batches.push({ id: item.id, label: `${isoToDay[iso] || iso} — ${item.portionsMade || "?"} portions made` });
+      }
+    });
+  });
+  return batches;
 }
 
 function renderAddModal() {
   if (!pendingAddSelection) {
     document.getElementById("modal").innerHTML = `
       <h2>Add to ${addModalDayName}</h2>
-      <p class="meta">Pick a recipe or food — you'll set the tag and quantity next.</p>
+      <p class="meta">Pick a recipe or food — you'll set the details next.</p>
 
       <div class="type-toggle">
         <button type="button" class="type-btn ${addType === "recipe" ? "active" : ""}" onclick="switchAddType('recipe')">🍳 Recipe</button>
@@ -260,39 +342,67 @@ function renderAddModal() {
       </div>
     `;
     renderAddOptions();
-  } else {
-    document.getElementById("modal").innerHTML = `
-      <h2>Add to ${addModalDayName}</h2>
-      <div class="selection-banner">
-        <span>${addType === "recipe" ? "🍳" : "🥫"} ${esc(pendingAddSelection.name)}</span>
-        <button onclick="backToAddPicker()">Change</button>
-      </div>
-
-      <div class="tag-quantity-row">
-        <div class="field">
-          <label>Tag</label>
-          <input id="addTag" list="tagOptions" placeholder="e.g. Breakfast">
-          <datalist id="tagOptions">
-            <option value="Breakfast"><option value="Lunch"><option value="Dinner"><option value="Snack">
-          </datalist>
-        </div>
-        <div class="field">
-          <label>Quantity</label>
-          <input id="addQuantity" type="number" step="any" min="0" value="1">
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn" onclick="backToAddPicker()">Back</button>
-        <button class="btn primary" onclick="confirmAddItem()">Add</button>
-      </div>
-    `;
+    return;
   }
+
+  const isRecipe = addType === "recipe";
+  const eligibleBatches = isRecipe ? findEligibleBatches(pendingAddSelection.id) : [];
+  const isLeftover = isRecipe && addCookMode === "leftover";
+  const recipeInfo = isRecipe ? data.recipes.find(r => r.id === pendingAddSelection.id) : null;
+
+  document.getElementById("modal").innerHTML = `
+    <h2>Add to ${addModalDayName}</h2>
+    <div class="selection-banner">
+      <span>${isRecipe ? "🍳" : "🥫"} ${esc(pendingAddSelection.name)}</span>
+      <button onclick="backToAddPicker()">Change</button>
+    </div>
+
+    ${isRecipe ? `
+      <div class="type-toggle">
+        <button type="button" class="type-btn ${addCookMode === "fresh" ? "active" : ""}" onclick="switchCookMode('fresh')">🍳 Cook fresh</button>
+        <button type="button" class="type-btn ${addCookMode === "leftover" ? "active" : ""}" ${eligibleBatches.length ? "" : "disabled"} onclick="switchCookMode('leftover')">🍽 Leftovers${eligibleBatches.length ? "" : " (none yet)"}</button>
+      </div>
+    ` : ""}
+
+    <div class="tag-quantity-row">
+      <div class="field">
+        <label>Tag</label>
+        <input id="addTag" list="tagOptions" placeholder="e.g. Breakfast">
+        <datalist id="tagOptions">
+          <option value="Breakfast"><option value="Lunch"><option value="Dinner"><option value="Snack">
+        </datalist>
+      </div>
+      <div class="field">
+        <label>${isLeftover ? "Portions eaten" : (isRecipe ? "Portions this makes" : "Quantity")}</label>
+        <input id="addQuantity" type="number" step="any" min="0" value="${isLeftover ? 1 : (isRecipe ? (recipeInfo?.servings || 1) : 1)}">
+      </div>
+    </div>
+
+    ${isLeftover ? `
+      <div class="field">
+        <label>Leftovers from</label>
+        <select id="addLeftoverOf">
+          ${eligibleBatches.map(b => `<option value="${b.id}">${esc(b.label)}</option>`).join("")}
+        </select>
+      </div>
+    ` : ""}
+
+    <div class="modal-actions">
+      <button class="btn" onclick="backToAddPicker()">Back</button>
+      <button class="btn primary" onclick="confirmAddItem()">Add</button>
+    </div>
+  `;
 }
 
 function switchAddType(type) {
   addType = type;
+  addCookMode = "fresh";
   pendingAddSelection = null;
+  renderAddModal();
+}
+
+function switchCookMode(mode) {
+  addCookMode = mode;
   renderAddModal();
 }
 
@@ -326,6 +436,7 @@ function selectAddItem(refId) {
   const item = source.find(x => x.id === refId);
   if (!item) return;
 
+  addCookMode = "fresh";
   pendingAddSelection = {
     id: item.id,
     name: item.name,
@@ -338,23 +449,42 @@ function selectAddItem(refId) {
 
 async function confirmAddItem() {
   const tag = document.getElementById("addTag").value.trim() || "Meal";
-  const quantityRaw = document.getElementById("addQuantity").value;
-  const quantity = quantityRaw === "" ? 1 : Number(quantityRaw);
   const sel = pendingAddSelection;
+  const isRecipe = addType === "recipe";
+  const isLeftover = isRecipe && addCookMode === "leftover";
+
+  const body = { day: addModalIso, meal_type: tag };
+  const localItem = { id: null, tag, type: addType, refId: sel.id, name: sel.name, sub: sel.sub, pantryAppliedAt: null };
+
+  if (isRecipe) {
+    body.recipe_id = sel.id;
+    if (isLeftover) {
+      const leftoverOfId = document.getElementById("addLeftoverOf").value;
+      const portionsEaten = Number(document.getElementById("addQuantity").value) || 1;
+      body.leftover_of = leftoverOfId;
+      body.portions_eaten = portionsEaten;
+      localItem.leftoverOf = leftoverOfId;
+      localItem.portionsEaten = portionsEaten;
+    } else {
+      const portionsMade = Number(document.getElementById("addQuantity").value) || 1;
+      body.portions_made = portionsMade;
+      localItem.portionsMade = portionsMade;
+    }
+  } else {
+    body.food_id = sel.id;
+    const quantity = Number(document.getElementById("addQuantity").value) || 1;
+    body.quantity = quantity;
+    localItem.quantity = quantity;
+  }
 
   try {
     const planId = await ensureMealPlan();
-    const body = {
-      meal_plan_id: planId, day: addModalIso, meal_type: tag, quantity,
-      ...(addType === "recipe" ? { recipe_id: sel.id } : { food_id: sel.id })
-    };
+    body.meal_plan_id = planId;
     const created = await supabaseRequest("meal_plan_items", { method: "POST", body });
+    localItem.id = created[0].id;
 
-    // Optimistic update — no full reload needed, we already know everything
-    // about the new item from what's already in memory.
-    const newItem = { id: created[0].id, tag, type: addType, refId: sel.id, quantity, name: sel.name, sub: sel.sub };
     if (!data.week[addModalIso]) data.week[addModalIso] = [];
-    data.week[addModalIso].push(newItem);
+    data.week[addModalIso].push(localItem);
 
     closeModal();
     renderWeek();
@@ -364,23 +494,23 @@ async function confirmAddItem() {
   }
 }
 
-// ---------- Edit-item modal (fixes tag/quantity without delete+re-add) ----------
-
-function findItemById(itemId) {
-  for (const iso in data.week) {
-    const found = data.week[iso].find(i => i.id === itemId);
-    if (found) return found;
-  }
-  return null;
-}
+// ---------- Edit-item modal (fixes tag/amount without delete+re-add) ----------
 
 function openEditModal(itemId) {
   const item = findItemById(itemId);
   if (!item) return;
 
+  const isLeftover = item.type === "recipe" && item.leftoverOf;
+  const isRecipeCook = item.type === "recipe" && !item.leftoverOf;
+
+  let qtyLabel = "Quantity";
+  let qtyValue = item.quantity ?? 1;
+  if (isRecipeCook) { qtyLabel = "Portions this makes"; qtyValue = item.portionsMade ?? 1; }
+  if (isLeftover) { qtyLabel = "Portions eaten"; qtyValue = item.portionsEaten ?? 1; }
+
   document.getElementById("modal").innerHTML = `
     <h2>Edit ${item.type === "recipe" ? "🍳" : "🥫"} ${esc(item.name)}</h2>
-    <p class="meta">Change the tag or quantity — to swap the recipe/food itself, remove this and add a new one.</p>
+    <p class="meta">Change the tag or amount — to swap the recipe/food itself, remove this and add a new one.</p>
 
     <div class="tag-quantity-row">
       <div class="field">
@@ -391,8 +521,8 @@ function openEditModal(itemId) {
         </datalist>
       </div>
       <div class="field">
-        <label>Quantity</label>
-        <input id="editQuantity" type="number" step="any" min="0" value="${item.quantity ?? 1}">
+        <label>${qtyLabel}</label>
+        <input id="editQuantity" type="number" step="any" min="0" value="${qtyValue}">
       </div>
     </div>
 
@@ -405,19 +535,28 @@ function openEditModal(itemId) {
 }
 
 async function saveEditItem(itemId) {
+  const item = findItemById(itemId);
+  if (!item) return;
+
+  const isLeftover = item.type === "recipe" && item.leftoverOf;
+  const isRecipeCook = item.type === "recipe" && !item.leftoverOf;
+
   const tag = document.getElementById("editTag").value.trim() || "Meal";
-  const quantityRaw = document.getElementById("editQuantity").value;
-  const quantity = quantityRaw === "" ? 1 : Number(quantityRaw);
+  const qtyRaw = document.getElementById("editQuantity").value;
+  const qty = qtyRaw === "" ? 1 : Number(qtyRaw);
+
+  const body = { meal_type: tag };
+  if (isRecipeCook) body.portions_made = qty;
+  else if (isLeftover) body.portions_eaten = qty;
+  else body.quantity = qty;
 
   try {
-    await supabaseRequest("meal_plan_items", {
-      method: "PATCH",
-      query: `?id=eq.${itemId}`,
-      body: { meal_type: tag, quantity }
-    });
+    await supabaseRequest("meal_plan_items", { method: "PATCH", query: `?id=eq.${itemId}`, body });
 
-    const item = findItemById(itemId);
-    if (item) { item.tag = tag; item.quantity = quantity; }
+    item.tag = tag;
+    if (isRecipeCook) item.portionsMade = qty;
+    else if (isLeftover) item.portionsEaten = qty;
+    else item.quantity = qty;
 
     closeModal();
     renderWeek();
@@ -428,12 +567,27 @@ async function saveEditItem(itemId) {
 }
 
 async function removeItem(itemId) {
+  // Warn if other entries this week reference this as their batch —
+  // deleting it will detach them (the DB does this via ON DELETE SET NULL).
+  const dependents = [];
+  Object.values(data.week).forEach(items => {
+    items.forEach(i => { if (i.leftoverOf === itemId) dependents.push(i); });
+  });
+
+  if (dependents.length) {
+    const n = dependents.length;
+    const proceed = confirm(`This has ${n} leftover ${n === 1 ? "entry" : "entries"} linked to it elsewhere this week. Removing it will detach ${n === 1 ? "that entry" : "those entries"} from the batch. Continue?`);
+    if (!proceed) return;
+  }
+
   try {
     await supabaseRequest("meal_plan_items", {
       method: "DELETE",
       query: `?id=eq.${itemId}`,
       prefer: "return=minimal"
     });
+
+    dependents.forEach(d => { d.leftoverOf = null; });
 
     for (const iso in data.week) {
       const idx = data.week[iso].findIndex(i => i.id === itemId);
@@ -443,6 +597,121 @@ async function removeItem(itemId) {
   } catch (error) {
     console.error(error);
     alert("Couldn't remove that item. Check the browser console for details.");
+  }
+}
+
+// ---------- Mark as cooked / eaten — deducts from pantry ----------
+
+async function openMarkCookedModal(itemId) {
+  const item = findItemById(itemId);
+  if (!item) return;
+
+  pendingMarkItemId = itemId;
+  document.getElementById("modal").innerHTML = `<h2>Loading…</h2>`;
+  document.getElementById("modalBackdrop").classList.add("open");
+
+  try {
+    const recipe = data.recipes.find(r => r.id === item.refId);
+    const baseServings = recipe?.servings || 1;
+    const multiplier = (item.portionsMade || baseServings) / baseServings;
+
+    const rows = await supabaseRequest("recipe_ingredients", {
+      query: `?select=ingredient_id,quantity,unit,ingredients(id,name,default_unit)&recipe_id=eq.${item.refId}&order=sort_order.asc`
+    });
+
+    pendingMarkRows = rows.filter(r => r.ingredients).map(r => ({
+      ingredientId: r.ingredient_id,
+      name: r.ingredients.name,
+      unit: r.unit || r.ingredients.default_unit || "",
+      suggestedQty: r.quantity !== null ? Math.round(r.quantity * multiplier * 100) / 100 : null
+    }));
+
+    renderMarkModal(item.name, "cooked");
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't load this recipe's ingredients. Check the browser console for details.");
+    closeModal();
+  }
+}
+
+function openMarkEatenModal(itemId) {
+  const item = findItemById(itemId);
+  if (!item) return;
+
+  const food = data.foods.find(f => f.id === item.refId);
+  pendingMarkItemId = itemId;
+  pendingMarkRows = [{
+    foodId: item.refId,
+    name: food ? food.name : item.name,
+    unit: food?.serving_unit || "",
+    suggestedQty: item.quantity || 1
+  }];
+
+  renderMarkModal(item.name, "eaten");
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function renderMarkModal(name, verb) {
+  document.getElementById("modal").innerHTML = `
+    <h2>Mark "${esc(name)}" as ${verb}</h2>
+    <p class="meta">This will be subtracted from your pantry. Adjust any amounts first — anything you don't actually have tracked in your pantry is skipped automatically.</p>
+    <div>
+      ${pendingMarkRows.map((r, i) => `
+        <div class="mark-row">
+          <div class="mark-row-name">${esc(r.name)}</div>
+          <input type="number" step="any" min="0" id="markQty_${i}" value="${r.suggestedQty ?? ""}" placeholder="0">
+          <div class="mark-row-unit">${esc(r.unit)}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="confirmMarkApplied()">Confirm — update pantry</button>
+    </div>
+  `;
+}
+
+async function deductFromPantry({ ingredientId, foodId, unit }, qty) {
+  if (!qty || qty <= 0) return;
+
+  const filters = ingredientId
+    ? `ingredient_id=eq.${ingredientId}&${unit ? `unit=eq.${encodeURIComponent(unit)}` : "unit=is.null"}`
+    : `food_id=eq.${foodId}`;
+
+  const existing = await supabaseRequest("pantry_items", {
+    query: `?select=id,quantity&${filters}&user_id=eq.${window.currentUserId}&limit=1`
+  });
+
+  if (!existing.length) return; // nothing tracked for this — nothing to subtract
+
+  const newQty = Math.max(0, (existing[0].quantity || 0) - qty);
+  await supabaseRequest("pantry_items", { method: "PATCH", query: `?id=eq.${existing[0].id}`, body: { quantity: newQty } });
+}
+
+async function confirmMarkApplied() {
+  const itemId = pendingMarkItemId;
+  const rows = pendingMarkRows.map((r, i) => ({
+    ...r,
+    enteredQty: document.getElementById(`markQty_${i}`).value
+  }));
+
+  try {
+    for (const r of rows) {
+      const qty = r.enteredQty === "" ? 0 : Number(r.enteredQty);
+      await deductFromPantry({ ingredientId: r.ingredientId, foodId: r.foodId, unit: r.unit }, qty);
+    }
+
+    const appliedAt = new Date().toISOString();
+    await supabaseRequest("meal_plan_items", { method: "PATCH", query: `?id=eq.${itemId}`, body: { pantry_applied_at: appliedAt } });
+
+    const item = findItemById(itemId);
+    if (item) item.pantryAppliedAt = appliedAt;
+
+    closeModal();
+    renderWeek();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't update your pantry. Check the browser console for details.");
   }
 }
 
