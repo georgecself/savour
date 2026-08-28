@@ -58,8 +58,13 @@
 <main>
 <section id="shopping" class="view active">
   <div class="section-head">
-    <h2>Shopping List <button class="refresh-btn" onclick="loadShoppingList()" title="Refresh">⟳</button></h2>
-    <button class="btn" onclick="clearChecked()">Clear ticks</button>
+    <h2 id="weekHeading">Shopping List <button class="refresh-btn" onclick="loadShoppingList()" title="Refresh">⟳</button></h2>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn" onclick="navigateWeek(-1)">◀</button>
+      <button class="btn" onclick="jumpToToday()">Today</button>
+      <button class="btn" onclick="navigateWeek(1)">▶</button>
+      <button class="btn" onclick="clearChecked()">Clear ticks</button>
+    </div>
   </div>
   <div id="summaryBar" class="summary-bar"></div>
   <div id="listContainer"></div>
