@@ -8,6 +8,17 @@ let checkedKeys = new Set();
 let currentWeekStart = null;
 let lastBuyRows = []; // kept around so "Complete shop" can look up ticked rows
 
+function getMondayOf(date) {
+  const day = date.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+let viewedMonday = getMondayOf(new Date());
+
 function setDbStatus(message) {
   document.getElementById("dbStatus").textContent = message;
 }
@@ -17,12 +28,7 @@ function isoDate(d) {
 }
 
 function getWeekStart() {
-  const now = new Date();
-  const day = now.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday);
-  return isoDate(monday);
+  return isoDate(viewedMonday);
 }
 
 function getWeekEnd(weekStart) {
@@ -60,6 +66,7 @@ async function loadShoppingList() {
     currentWeekStart = getWeekStart();
     const weekEnd = getWeekEnd(currentWeekStart);
     checkedKeys = loadCheckedFromStorage(currentWeekStart);
+    updateWeekHeading();
 
     const plans = await supabaseRequest("meal_plans", {
       query: `?select=id&week_start=eq.${currentWeekStart}&user_id=eq.${window.currentUserId}&limit=1`
@@ -386,6 +393,27 @@ function renderEmpty() {
   document.getElementById("summaryBar").innerHTML = "";
   document.getElementById("listContainer").innerHTML =
     `<div class="empty-state">Nothing planned for this week yet — add recipes or foods on the Week page and they'll show up here.</div>`;
+}
+
+function updateWeekHeading() {
+  const monday = new Date(viewedMonday);
+  const sunday = new Date(viewedMonday);
+  sunday.setDate(sunday.getDate() + 6);
+  const fmt = d => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const isCurrentWeek = isoDate(viewedMonday) === isoDate(getMondayOf(new Date()));
+  const rangeLabel = `${fmt(monday)} – ${fmt(sunday)}`;
+  const heading = document.getElementById("weekHeading");
+  if (heading) heading.textContent = isCurrentWeek ? `Shopping List (${rangeLabel})` : `Shopping List — ${rangeLabel}`;
+}
+
+async function navigateWeek(delta) {
+  viewedMonday.setDate(viewedMonday.getDate() + delta * 7);
+  await loadShoppingList();
+}
+
+async function jumpToToday() {
+  viewedMonday = getMondayOf(new Date());
+  await loadShoppingList();
 }
 
 function toggleChecked(key, checkbox) {
