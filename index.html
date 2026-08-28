@@ -248,6 +248,8 @@ async function loadAll() {
       data.week[raw.day].push(item);
     });
 
+    await attachPortionsRemaining();
+
     renderWeek();
     setDbStatus("Connected to Supabase");
   } catch (error) {
@@ -255,6 +257,28 @@ async function loadAll() {
     setDbStatus("Database connection failed");
   } finally {
     loading = false;
+  }
+}
+
+// Fills in item.portionsRemaining for every cook entry currently in view, by
+// checking claims against it across ALL weeks (not just this one).
+async function attachPortionsRemaining() {
+  const cookEntries = Object.values(data.week).flat().filter(i => i.type === "recipe" && !i.leftoverOf);
+  if (!cookEntries.length) return;
+
+  const idList = cookEntries.map(i => `"${i.id}"`).join(",");
+  try {
+    const claims = await supabaseRequest("meal_plan_items", {
+      query: `?select=leftover_of,portions_eaten&leftover_of=in.(${idList})`
+    });
+    const eatenByBatch = {};
+    claims.forEach(c => { eatenByBatch[c.leftover_of] = (eatenByBatch[c.leftover_of] || 0) + (c.portions_eaten || 0); });
+
+    cookEntries.forEach(item => {
+      item.portionsRemaining = (item.portionsMade || 0) - (eatenByBatch[item.id] || 0);
+    });
+  } catch (error) {
+    console.error(error); // non-critical — just skip showing the indicator
   }
 }
 
@@ -307,6 +331,9 @@ function renderItemRow(item, isoToDay) {
       qtyLabel = ` — ${item.portionsEaten || 1} portion${(item.portionsEaten || 1) == 1 ? "" : "s"}`;
     } else {
       qtyLabel = ` — makes ${item.portionsMade || "?"} portions`;
+      if (item.portionsRemaining !== undefined && item.portionsRemaining < (item.portionsMade || 0)) {
+        qtyLabel += ` · ${Math.max(0, item.portionsRemaining)} left`;
+      }
     }
   } else if (item.quantity && item.quantity != 1) {
     qtyLabel = ` ×${item.quantity}`;
@@ -346,9 +373,11 @@ function openAddModal(iso, dayName) {
   document.getElementById("modalBackdrop").classList.add("open");
 }
 
-async function fetchEligibleBatches(recipeId) {
+async function fetchEligibleBatches(recipeId, uptoIso) {
   // Cross-week: search all of the user's recent cook entries for this recipe,
-  // not just whatever week is currently on screen.
+  // not just whatever week is currently on screen. Restricted to batches on
+  // or before the day being planned — you can't eat leftovers of something
+  // that hasn't been cooked yet.
   const plans = await supabaseRequest("meal_plans", {
     query: `?select=id&user_id=eq.${window.currentUserId}&order=week_start.desc&limit=8`
   });
@@ -356,10 +385,27 @@ async function fetchEligibleBatches(recipeId) {
 
   const planIds = plans.map(p => `"${p.id}"`).join(",");
   const items = await supabaseRequest("meal_plan_items", {
-    query: `?select=id,day,portions_made&recipe_id=eq.${recipeId}&leftover_of=is.null&meal_plan_id=in.(${planIds})&order=day.desc&limit=15`
+    query: `?select=id,day,portions_made&recipe_id=eq.${recipeId}&leftover_of=is.null&meal_plan_id=in.(${planIds})&day=lte.${uptoIso}&order=day.desc&limit=15`
   });
+  if (!items.length) return [];
 
-  return items.map(i => ({ id: i.id, label: `${formatDateLabel(i.day)} — ${i.portions_made || "?"} portions made` }));
+  // Work out how many portions are already claimed against each candidate
+  // batch, so fully-used-up batches don't show as an option at all.
+  const itemIds = items.map(i => `"${i.id}"`).join(",");
+  const claims = await supabaseRequest("meal_plan_items", {
+    query: `?select=leftover_of,portions_eaten&leftover_of=in.(${itemIds})`
+  });
+  const eatenByBatch = {};
+  claims.forEach(c => { eatenByBatch[c.leftover_of] = (eatenByBatch[c.leftover_of] || 0) + (c.portions_eaten || 0); });
+
+  return items
+    .map(i => {
+      const made = i.portions_made || 0;
+      const remaining = made - (eatenByBatch[i.id] || 0);
+      return { id: i.id, made, remaining };
+    })
+    .filter(b => b.remaining > 0)
+    .map(b => ({ id: b.id, remaining: b.remaining, label: `${formatDateLabel(items.find(i => i.id === b.id).day)} — ${b.remaining} portion${b.remaining === 1 ? "" : "s"} left (of ${b.made} made)` }));
 }
 
 function renderAddModal() {
@@ -417,15 +463,15 @@ function renderAddModal() {
       </div>
       <div class="field">
         <label>${isLeftover ? "Portions eaten" : (isRecipe ? "Portions this makes" : "Quantity")}</label>
-        <input id="addQuantity" type="number" step="any" min="0" value="${isLeftover ? 1 : (isRecipe ? (recipeInfo?.servings || 1) : 1)}">
+        <input id="addQuantity" type="number" step="any" min="0" ${isLeftover ? `max="${eligibleBatches[0]?.remaining || 1}"` : ""} value="${isLeftover ? 1 : (isRecipe ? (recipeInfo?.servings || 1) : 1)}">
       </div>
     </div>
 
     ${isLeftover ? `
       <div class="field">
         <label>Leftovers from</label>
-        <select id="addLeftoverOf">
-          ${eligibleBatches.map(b => `<option value="${b.id}">${esc(b.label)}</option>`).join("")}
+        <select id="addLeftoverOf" onchange="onLeftoverBatchChange()">
+          ${eligibleBatches.map(b => `<option value="${b.id}" data-remaining="${b.remaining}">${esc(b.label)}</option>`).join("")}
         </select>
       </div>
     ` : ""}
@@ -447,6 +493,15 @@ function switchAddType(type) {
 function switchCookMode(mode) {
   addCookMode = mode;
   renderAddModal();
+}
+
+function onLeftoverBatchChange() {
+  const select = document.getElementById("addLeftoverOf");
+  const selected = select.options[select.selectedIndex];
+  const remaining = Number(selected?.dataset.remaining) || 1;
+  const qtyInput = document.getElementById("addQuantity");
+  qtyInput.max = remaining;
+  if (Number(qtyInput.value) > remaining) qtyInput.value = remaining;
 }
 
 function backToAddPicker() {
@@ -492,7 +547,7 @@ async function selectAddItem(refId) {
   if (addType === "recipe") {
     document.getElementById("modal").innerHTML = `<h2>Loading…</h2>`;
     try {
-      pendingEligibleBatches = await fetchEligibleBatches(item.id);
+      pendingEligibleBatches = await fetchEligibleBatches(item.id, addModalIso);
     } catch (error) {
       console.error(error);
       pendingEligibleBatches = [];
@@ -516,6 +571,11 @@ async function confirmAddItem() {
     if (isLeftover) {
       const leftoverOfId = document.getElementById("addLeftoverOf").value;
       const portionsEaten = Number(document.getElementById("addQuantity").value) || 1;
+      const batch = pendingEligibleBatches.find(b => b.id === leftoverOfId);
+      if (batch && portionsEaten > batch.remaining) {
+        alert(`Only ${batch.remaining} portion${batch.remaining === 1 ? "" : "s"} left from that batch.`);
+        return;
+      }
       body.leftover_of = leftoverOfId;
       body.portions_eaten = portionsEaten;
       localItem.leftoverOf = leftoverOfId;
