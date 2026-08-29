@@ -14,15 +14,24 @@
 const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
 
 const NAV_ITEMS = [
-  { href: "dashboard.html", icon: "🏠", label: "Dashboard" },
-  { href: "index.html", icon: "📅", label: "Week" },
-  { href: "recipes.html", icon: "🍳", label: "Recipes" },
-  { href: "ingredients.html", icon: "🥕", label: "Ingredients" },
-  { href: "foods.html", icon: "🥫", label: "Foods" },
-  { href: "shopping.html", icon: "🛒", label: "Shopping" },
-  { href: "pantry.html", icon: "📦", label: "Pantry" },
-  { href: "deal-check.html", icon: "🎯", label: "Deal Check" }
+  { href: "dashboard.html", icon: "dashboard", label: "Dashboard" },
+  { href: "index.html", icon: "mealplans", label: "Meal Plans" },
+  { href: "recipes.html", icon: "recipes", label: "Recipes" },
+  { href: "foods.html", icon: "foods", label: "Foods" },
+  { href: "pantry.html", icon: "pantry", label: "Pantry" },
+  { href: "shopping.html", icon: "shopping", label: "Shopping" },
+  { href: "deal-check.html", icon: "deal", label: "Deal Checker" }
 ];
+
+const NAV_ICON_SVGS = {
+  dashboard: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>`,
+  mealplans: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>`,
+  recipes: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c2-1 5-1 7 0v14c-2-1-5-1-7 0V5Z"/><path d="M21 5c-2-1-5-1-7 0v14c2-1 5-1 7 0V5Z"/></svg>`,
+  foods: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h10l-1 12a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2L7 8Z"/><path d="M6 5h12M9 5V3h6v2"/></svg>`,
+  pantry: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 12h16"/><path d="M8 3v9M16 3v9"/></svg>`,
+  shopping: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-1.5 10a2 2 0 0 1-2 1.7H8.5a2 2 0 0 1-2-1.7L5 9Z"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg>`,
+  deal: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 12.6 12 21l-9-9V4h8l9.4 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/></svg>`
+};
 
 const LOGO_SVG = `<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="13" cy="13" r="12" stroke="#4B5D32" stroke-width="2"/>
@@ -38,7 +47,7 @@ function navLinksHtml() {
   const current = currentPageName();
   return NAV_ITEMS.map(item => `
     <a href="${item.href}" class="${item.href === current ? "active" : ""}">
-      <span class="icon">${item.icon}</span>${item.label}
+      <span class="icon">${NAV_ICON_SVGS[item.icon]}</span><span class="nav-label">${item.label}</span>
     </a>
   `).join("");
 }
@@ -63,8 +72,13 @@ function buildShellStructure() {
     </div>
 
     <div class="app-shell">
-      <aside class="sidebar">
-        <a href="dashboard.html" class="sidebar-logo">${LOGO_SVG}<span class="sidebar-logo-text">Savour</span></a>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top-row">
+          <a href="dashboard.html" class="sidebar-logo">${LOGO_SVG}<span class="sidebar-logo-text">Savour</span></a>
+          <button class="sidebar-collapse-btn" onclick="toggleSidebar()" aria-label="Collapse menu" title="Collapse menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+        </div>
         <nav class="sidebar-nav">${navLinksHtml()}</nav>
         <div id="adminSlot"></div>
         <div class="sidebar-profile" id="profileSlot"></div>
@@ -81,9 +95,19 @@ function buildShellStructure() {
 
   const slot = document.getElementById("shellMainSlot");
   originalNodes.forEach(node => slot.appendChild(node));
+
+  if (localStorage.getItem("savour_sidebar_collapsed") === "true") {
+    document.getElementById("sidebar").classList.add("collapsed");
+  }
 }
 
 buildShellStructure();
+
+function toggleSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  const collapsed = sidebar.classList.toggle("collapsed");
+  localStorage.setItem("savour_sidebar_collapsed", collapsed ? "true" : "false");
+}
 
 // ---------- Step 2: async data population (profile, admin links, status) ----------
 
@@ -126,14 +150,17 @@ async function loadProfileIntoShell() {
   document.getElementById("profileSlot").innerHTML = profileHtml;
   document.getElementById("mobileProfileSlot").innerHTML = profileHtml;
 
+  const extraLinks = [`<a href="ingredients.html" class="sidebar-extra-link">Ingredients</a>`];
   if (window.currentUserId === ADMIN_USER_ID) {
-    const adminHtml = `<div class="sidebar-admin-label">Admin</div>
-      <a href="recipes-import.html" style="display:block; padding:8px 10px; font-size:13px; color:var(--muted); text-decoration:none;">⬆ Import recipes</a>
-      <a href="foods-import.html" style="display:block; padding:8px 10px; font-size:13px; color:var(--muted); text-decoration:none;">⬆ Import foods</a>
-      <a href="prices.html" style="display:block; padding:8px 10px; font-size:13px; color:var(--muted); text-decoration:none;">📊 All prices</a>`;
-    document.getElementById("adminSlot").innerHTML = adminHtml;
-    document.getElementById("mobileAdminSlot").innerHTML = adminHtml;
+    extraLinks.push(
+      `<a href="recipes-import.html" class="sidebar-extra-link">⬆ Import recipes</a>`,
+      `<a href="foods-import.html" class="sidebar-extra-link">⬆ Import foods</a>`,
+      `<a href="prices.html" class="sidebar-extra-link">📊 All prices</a>`
+    );
   }
+  const extrasHtml = `<div class="sidebar-admin-label">More</div>${extraLinks.join("")}`;
+  document.getElementById("adminSlot").innerHTML = extrasHtml;
+  document.getElementById("mobileAdminSlot").innerHTML = extrasHtml;
 }
 
 function setShellStatus(state, text) {

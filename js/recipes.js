@@ -320,7 +320,7 @@ function showSuggestions(row, matches) {
 
   box.innerHTML = matches.length
     ? matches.map(m => `<div data-id="${m.id}" data-name="${esc(m.name)}" data-unit="${esc(m.default_unit || "")}">${esc(m.name)} <span style="color:var(--muted)">· ${esc(m.category)}</span></div>`).join("")
-    : `<div class="no-match">No matching ingredient — add it on the Ingredients page first.</div>`;
+    : `<div class="no-match">No matching ingredient — <a href="ingredients.html" target="_blank">add it on the Ingredients page</a> first.</div>`;
 
   box.querySelectorAll("div[data-id]").forEach(el => {
     el.addEventListener("mousedown", (e) => {

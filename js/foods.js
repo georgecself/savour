@@ -21,7 +21,6 @@ const els = {
   protein: document.getElementById("foodProtein"),
   carbs: document.getElementById("foodCarbs"),
   fat: document.getElementById("foodFat"),
-  imageUrl: document.getElementById("foodImageUrl"),
   price: document.getElementById("foodPrice"),
   add: document.getElementById("addFoodBtn"),
   cancel: document.getElementById("cancelBtn"),
@@ -38,14 +37,7 @@ function fmtNum(n, suffix = "") {
   return n === null || n === undefined ? "—" : `${n}${suffix}`;
 }
 
-function coverPlaceholderSvg(size) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="13" cy="13" r="12" stroke="#4B5D32" stroke-width="1.5"/>
-    <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" fill="#4B5D32"/>
-  </svg>`;
-}
-
-const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,image_url,is_public,created_at";
+const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,is_public,created_at";
 
 async function loadFoodsMatching(query) {
   return supabaseRequest("foods", { query: `?select=${FOOD_SELECT}&${query}&order=name.asc` });
@@ -126,10 +118,6 @@ function renderFoods() {
           return `
           <tr>
             <td class="wrap">
-              ${item.image_url
-                ? `<img class="food-thumb" src="${esc(item.image_url)}" alt="" onerror="this.style.display='none'">`
-                : `<span class="food-thumb cover-placeholder">${coverPlaceholderSvg(16)}</span>`
-              }
               <strong>${esc(item.name)}</strong>
               ${state.activeTab === "library" ? `<br><span class="owner-badge">${isMine ? "Yours" : "Shared"}</span>` : ""}
             </td>
@@ -169,7 +157,7 @@ async function cloneFood(id) {
         name: source.name, brand: source.brand, shopping_category: source.shopping_category,
         serving_size: source.serving_size, serving_unit: source.serving_unit,
         calories: source.calories, protein_g: source.protein_g, carbohydrates_g: source.carbohydrates_g,
-        fat_g: source.fat_g, price: source.price, image_url: source.image_url,
+        fat_g: source.fat_g, price: source.price,
         user_id: window.currentUserId, is_public: false
       }
     });
@@ -192,7 +180,6 @@ function fillForm(item) {
   els.protein.value = item?.protein_g ?? "";
   els.carbs.value = item?.carbohydrates_g ?? "";
   els.fat.value = item?.fat_g ?? "";
-  els.imageUrl.value = item?.image_url || "";
   els.price.value = item?.price ?? "";
 }
 
@@ -241,7 +228,6 @@ async function saveFood() {
     protein_g: numOrNull(els.protein.value),
     carbohydrates_g: numOrNull(els.carbs.value),
     fat_g: numOrNull(els.fat.value),
-    image_url: els.imageUrl.value.trim() || null,
     price: numOrNull(els.price.value)
   };
 
