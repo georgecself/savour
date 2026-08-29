@@ -415,9 +415,9 @@ function renderItemMenu(item, showMarkAction, markLabel) {
     <div class="item-menu-wrap" onclick="event.stopPropagation(); event.preventDefault();">
       <button class="kebab-btn" onclick="toggleItemMenu(event,'${item.id}')" aria-label="Options">⋮</button>
       <div class="item-menu" id="menu-${item.id}">
-        <button onclick="openEditModal('${item.id}')">${MENU_ICONS.edit} Edit</button>
-        ${showMarkAction && !item.pantryAppliedAt ? `<button onclick="${markAction}">${MENU_ICONS.mark} Mark as ${markLabel}</button>` : ""}
-        <button class="danger" onclick="removeItem('${item.id}')">${MENU_ICONS.remove} Remove</button>
+        <button onclick="closeAllItemMenus(); openEditModal('${item.id}')">${MENU_ICONS.edit} Edit</button>
+        ${showMarkAction && !item.pantryAppliedAt ? `<button onclick="closeAllItemMenus(); ${markAction}">${MENU_ICONS.mark} Mark as ${markLabel}</button>` : ""}
+        <button class="danger" onclick="closeAllItemMenus(); removeItem('${item.id}')">${MENU_ICONS.remove} Remove</button>
       </div>
     </div>
   `;
