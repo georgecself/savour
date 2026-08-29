@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Sign in</title>
 <link rel="stylesheet" href="css/style.css">
@@ -18,7 +26,7 @@
   .switch-mode { text-align:center; margin-top:14px; font-size:13px; color:var(--muted); }
   .switch-mode a { color:var(--accent-dark); cursor:pointer; text-decoration:underline; }
   .auth-message { font-size:13px; margin-top:12px; padding:10px; border-radius:8px; }
-  .auth-message.error { background:#fdf1f0; color:#c0392b; }
+  .auth-message.error { background:var(--rust-soft); color:var(--rust); }
   .auth-message.success { background:var(--accent-soft); color:var(--accent-dark); }
 </style>
 </head>
