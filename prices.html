@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Prices</title>
 <link rel="stylesheet" href="css/style.css">
@@ -13,11 +21,11 @@
   .price-card { padding:0; overflow-x:auto; }
   .price-table { width:100%; border-collapse:collapse; min-width:680px; }
   .price-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  .price-table td { padding:10px 14px; border-bottom:1px solid #f0f0ed; font-size:14px; white-space:nowrap; }
+  .price-table td { padding:10px 14px; border-bottom:1px solid var(--line); font-size:14px; white-space:nowrap; }
   .price-table tr:last-child td { border-bottom:0; }
   .price-table tr.best td { background:#f4f9f1; }
-  .best-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#2e7d4f; background:#e3f2e6; padding:2px 7px; border-radius:999px; margin-left:6px; }
-  .deal-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#a15c00; background:#fdf0da; padding:2px 7px; border-radius:999px; margin-left:6px; }
+  .best-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--success); background:var(--success-soft); padding:2px 7px; border-radius:999px; margin-left:6px; }
+  .deal-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--gold-dark); background:var(--gold-soft); padding:2px 7px; border-radius:999px; margin-left:6px; }
   .unit-price { font-weight:600; }
   .actions { display:flex; gap:6px; }
   .empty-state { color:var(--muted); padding:30px; text-align:center; }
@@ -30,7 +38,7 @@
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
 
   .type-toggle { display:flex; gap:8px; margin-bottom:14px; }
-  .type-btn { flex:1; border:1px solid var(--line); background:white; border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
+  .type-btn { flex:1; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
   .type-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
 
   .field { margin-bottom:13px; }
@@ -40,7 +48,7 @@
   .field.full { grid-column:1/-1; }
 
   .pick-options { max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
-  .pick-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid #f0f0ed; }
+  .pick-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--line); }
   .pick-option:last-child { border-bottom:0; }
   .pick-option:hover { background:var(--accent-soft); }
   .pick-options .empty-state { padding:16px; font-size:13px; }

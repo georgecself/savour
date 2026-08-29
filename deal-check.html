@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Deal Check</title>
 <link rel="stylesheet" href="css/style.css">
@@ -9,7 +17,7 @@
   .deal-wrap { max-width:560px; margin:0 auto; }
   .card.section-card { padding:22px; margin-bottom:18px; }
   .type-toggle { display:flex; gap:8px; margin-bottom:14px; }
-  .type-btn { flex:1; border:1px solid var(--line); background:white; border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
+  .type-btn { flex:1; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
   .type-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
   .field { margin-bottom:13px; }
   .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
@@ -18,7 +26,7 @@
   .field.full { grid-column:1/-1; }
 
   .pick-options { max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
-  .pick-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid #f0f0ed; }
+  .pick-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--line); }
   .pick-option:last-child { border-bottom:0; }
   .pick-option:hover { background:var(--accent-soft); }
   .pick-options .empty-state { padding:16px; font-size:13px; }
@@ -28,10 +36,10 @@
   .guide-note { color:var(--muted); font-size:13px; margin-bottom:16px; }
 
   .verdict { border-radius:16px; padding:20px; text-align:center; margin-bottom:16px; }
-  .verdict.good { background:#eaf6ec; }
-  .verdict.typical { background:#fdf6e3; }
-  .verdict.bad { background:#fdeceb; }
-  .verdict.unknown { background:#f4f4f2; }
+  .verdict.good { background:var(--success-soft); }
+  .verdict.typical { background:var(--gold-soft); }
+  .verdict.bad { background:var(--rust-soft); }
+  .verdict.unknown { background:var(--surface-2); }
   .verdict-emoji { font-size:34px; }
   .verdict-label { font-size:18px; font-weight:700; margin-top:4px; }
   .verdict-detail { font-size:13px; color:var(--muted); margin-top:4px; }
@@ -42,7 +50,7 @@
   .recipe-suggest { margin-top:6px; }
   .recipe-suggest h3 { font-size:14px; margin:0 0 10px; }
   .suggest-list { list-style:none; padding:0; margin:0; }
-  .suggest-list li { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid #f0f0ed; font-size:14px; }
+  .suggest-list li { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px; }
   .suggest-list li:last-child { border-bottom:0; }
   .suggest-sub { color:var(--muted); font-size:12px; }
   .footer-link { text-align:center; margin-top:6px; }

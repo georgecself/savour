@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Pantry</title>
 <link rel="stylesheet" href="css/style.css">
@@ -10,8 +18,8 @@
   .toolbar input { flex:1; max-width:320px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
   .pantry-table { width:100%; border-collapse:collapse; }
   .pantry-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); }
-  .pantry-table td { padding:12px 14px; border-bottom:1px solid #f0f0ed; font-size:14px; }
-  .pantry-table .num { color:#5a5c56; }
+  .pantry-table td { padding:12px 14px; border-bottom:1px solid var(--line); font-size:14px; }
+  .pantry-table .num { color:var(--muted); }
   .actions { display:flex; gap:7px; }
   .empty-state { color:var(--muted); padding:30px; text-align:center; }
   .table-card { padding:0; overflow-x:auto; }
@@ -24,7 +32,7 @@
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
 
   .type-toggle { display:flex; gap:8px; margin-bottom:14px; }
-  .type-btn { flex:1; border:1px solid var(--line); background:white; border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
+  .type-btn { flex:1; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
   .type-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
 
   .field { margin-bottom:13px; }
@@ -33,7 +41,7 @@
   .qty-unit-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
   .pick-options { max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
-  .pick-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid #f0f0ed; }
+  .pick-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--line); }
   .pick-option:last-child { border-bottom:0; }
   .pick-option:hover { background:var(--accent-soft); }
   .pick-option .sub { color:var(--muted); font-size:11px; margin-top:1px; }
