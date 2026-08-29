@@ -40,7 +40,7 @@
   .item-hero { position:relative; border-radius:10px; margin-bottom:8px; min-height:104px; background-size:cover; background-position:center; display:flex; align-items:flex-end; }
   .item-hero::before { content:""; position:absolute; inset:0; border-radius:10px; background:linear-gradient(to top, rgba(20,16,10,.8) 0%, rgba(20,16,10,.3) 55%, rgba(20,16,10,0) 100%); }
   .hero-content { position:relative; z-index:1; padding:10px; width:100%; }
-  .item-hero .tag-badge { background:rgba(255,255,255,.92); }
+  .item-hero .tag-badge { background:rgba(255,255,255,.92); color:var(--on-light-chip); }
   .item-hero .item-name { color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.5); }
   .item-hero .item-sub { color:rgba(255,255,255,.9); text-shadow:0 1px 3px rgba(0,0,0,.5); }
   .item-hero .applied-note { color:#baf0c2; }
@@ -95,6 +95,20 @@
 
   @media(max-width:900px){.week-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:650px){.week-grid{grid-template-columns:1fr}.tag-quantity-row{grid-template-columns:1fr}}
+
+  @media print {
+    .sidebar, .mobile-topbar, .status-dot-row, .week-toolbar, .add-day-btn, .item-menu-wrap { display:none !important; }
+    body { background:#fff !important; }
+    .app-main { padding:0 !important; }
+    .week-grid { display:block !important; }
+    .day { border:1px solid #ccc !important; background:#fff !important; box-shadow:none !important; break-inside:avoid; margin-bottom:14px; padding:12px; }
+    .item-hero { background-image:none !important; background:#f4f4f2 !important; display:block !important; }
+    .item-hero::before { display:none !important; }
+    .item-hero .item-name, .item-hero .item-sub { color:#000 !important; text-shadow:none !important; }
+    .item-row { background:#fff !important; border:1px solid #ddd !important; }
+    .tag-badge, .item-hero .tag-badge { background:#eee !important; color:#000 !important; }
+    .item-name, .item-sub, .item-name { color:#000 !important; }
+  }
 </style>
 </head>
 <body>
@@ -102,11 +116,12 @@
 <section id="week" class="view active">
   <div class="section-head">
     <h2 id="weekHeading">This Week</h2>
-    <div style="display:flex; gap:8px; align-items:center;">
+    <div class="week-toolbar" style="display:flex; gap:8px; align-items:center;">
       <button class="btn" onclick="navigateWeek(-1)">◀</button>
       <button class="btn" onclick="jumpToToday()">Today</button>
       <button class="btn" onclick="navigateWeek(1)">▶</button>
       <button class="btn" onclick="clearWeek()">Clear week</button>
+      <button class="btn" onclick="downloadWeekAsPdf()">⬇ Download as PDF</button>
     </div>
   </div>
   <div id="weekGrid" class="week-grid"></div>
@@ -948,6 +963,14 @@ async function clearWeek() {
 
 function closeModal() {
   document.getElementById("modalBackdrop").classList.remove("open");
+}
+
+function downloadWeekAsPdf() {
+  const heading = document.getElementById("weekHeading").textContent.trim();
+  const previousTitle = document.title;
+  document.title = `Savour — ${heading}`;
+  window.print();
+  setTimeout(() => { document.title = previousTitle; }, 500);
 }
 
 (async function init() {
