@@ -178,7 +178,7 @@ async function renderRecipeSuggestions() {
 
   try {
     const rows = await supabaseRequest("recipe_ingredients", {
-      query: `?select=recipe_id,recipes(id,name,servings,cooking_time_minutes)&ingredient_id=eq.${state.selection.id}`
+      query: `?select=recipe_id,recipes(id,name,servings,cooking_time_minutes,icon)&ingredient_id=eq.${state.selection.id}`
     });
 
     const seen = new Set();
@@ -198,7 +198,7 @@ async function renderRecipeSuggestions() {
         <ul class="suggest-list">
           ${recipes.map(r => `
             <li>
-              <span>${esc(r.name)}<br><span class="suggest-sub">Serves ${r.servings || "?"} · ${r.cooking_time_minutes ? r.cooking_time_minutes + " mins" : ""}</span></span>
+              <span>${r.icon || "🍳"} ${esc(r.name)}<br><span class="suggest-sub">Serves ${r.servings || "?"} · ${r.cooking_time_minutes ? r.cooking_time_minutes + " mins" : ""}</span></span>
               <a class="btn" href="recipe-view.html?id=${r.id}">View</a>
             </li>
           `).join("")}

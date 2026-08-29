@@ -1,4 +1,5 @@
 const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
+const FOOD_EMOJI_CHOICES = ["🥫","🥤","🧃","🍎","🍌","🥑","🧀","🥛","🍫","🥜","🍞","🥨","🍿","🍯","🥚","🧈","🥓","🍇","🍓","🫐"];
 
 const state = {
   myFoods: [],
@@ -22,6 +23,7 @@ const els = {
   carbs: document.getElementById("foodCarbs"),
   fat: document.getElementById("foodFat"),
   imageUrl: document.getElementById("foodImageUrl"),
+  icon: document.getElementById("foodIcon"),
   price: document.getElementById("foodPrice"),
   add: document.getElementById("addFoodBtn"),
   cancel: document.getElementById("cancelBtn"),
@@ -38,7 +40,7 @@ function fmtNum(n, suffix = "") {
   return n === null || n === undefined ? "—" : `${n}${suffix}`;
 }
 
-const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,image_url,is_public,created_at";
+const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,image_url,icon,is_public,created_at";
 
 async function loadFoodsMatching(query) {
   return supabaseRequest("foods", { query: `?select=${FOOD_SELECT}&${query}&order=name.asc` });
@@ -120,7 +122,7 @@ function renderFoods() {
           <tr>
             <td class="wrap">
               ${item.image_url ? `<img class="food-thumb" src="${esc(item.image_url)}" alt="" onerror="this.style.display='none'">` : ""}
-              <strong>${esc(item.name)}</strong>
+              <strong>${item.icon || "🥫"} ${esc(item.name)}</strong>
               ${state.activeTab === "library" ? `<br><span class="owner-badge">${isMine ? "Yours" : "Shared"}</span>` : ""}
             </td>
             <td>${esc(item.brand || "—")}</td>
@@ -159,7 +161,7 @@ async function cloneFood(id) {
         name: source.name, brand: source.brand, shopping_category: source.shopping_category,
         serving_size: source.serving_size, serving_unit: source.serving_unit,
         calories: source.calories, protein_g: source.protein_g, carbohydrates_g: source.carbohydrates_g,
-        fat_g: source.fat_g, price: source.price, image_url: source.image_url,
+        fat_g: source.fat_g, price: source.price, image_url: source.image_url, icon: source.icon,
         user_id: window.currentUserId, is_public: false
       }
     });
@@ -183,6 +185,7 @@ function fillForm(item) {
   els.carbs.value = item?.carbohydrates_g ?? "";
   els.fat.value = item?.fat_g ?? "";
   els.imageUrl.value = item?.image_url || "";
+  els.icon.value = item?.icon || "🥫";
   els.price.value = item?.price ?? "";
 }
 
@@ -232,6 +235,7 @@ async function saveFood() {
     carbohydrates_g: numOrNull(els.carbs.value),
     fat_g: numOrNull(els.fat.value),
     image_url: els.imageUrl.value.trim() || null,
+    icon: els.icon.value.trim() || "🥫",
     price: numOrNull(els.price.value)
   };
 
@@ -289,6 +293,10 @@ els.add.addEventListener("click", openAddFood);
 els.cancel.addEventListener("click", closeModal);
 els.save.addEventListener("click", saveFood);
 els.search.addEventListener("input", renderFoods);
+
+document.getElementById("foodIconPalette").innerHTML = FOOD_EMOJI_CHOICES.map(e =>
+  `<button type="button" onclick="els.icon.value='${e}'" style="border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:5px 8px; font-size:16px; cursor:pointer;">${e}</button>`
+).join("");
 
 els.modal.addEventListener("click", event => {
   if (event.target === els.modal) closeModal();

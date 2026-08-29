@@ -32,9 +32,11 @@ function setStatus(message) {
 
 // ---------- Loading ----------
 
+const RECIPE_EMOJI_CHOICES = ["🍳","🍝","🍕","🍗","🥩","🍜","🍲","🥘","🍛","🌮","🥙","🥞","🧇","🍰","🍪","🥗","🍱","🍣","🥪","🍔"];
+
 async function loadRecipesMatching(query) {
   const recipes = await supabaseRequest("recipes", {
-    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,is_public&${query}&order=name.asc`
+    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,icon,is_public&${query}&order=name.asc`
   });
 
   const recipeIds = recipes.map(r => r.id);
@@ -55,6 +57,7 @@ async function loadRecipesMatching(query) {
     time: r.cooking_time_minutes || 30,
     instructions: r.instructions || "",
     imageUrl: r.image_url || "",
+    icon: r.icon || "🍳",
     isPublic: r.is_public,
     ingredients: recipeIngredients
       .filter(ri => ri.recipe_id === r.id)
@@ -124,7 +127,7 @@ function renderRecipeList() {
       ${r.imageUrl ? `<img class="recipe-card-img" src="${esc(r.imageUrl)}" alt="" onerror="this.style.display='none'">` : ""}
       <div class="recipe-card-body">
         ${state.activeTab === "library" ? `<div class="owner-badge">${isMine ? "Yours · published" : "Shared"}</div>` : ""}
-        <h3>${esc(r.name)}</h3>
+        <h3>${r.icon} ${esc(r.name)}</h3>
         <div class="meta">Serves ${r.servings} · ${r.time} mins · ${r.ingredients.length} ingredient${r.ingredients.length === 1 ? "" : "s"}</div>
         <ul>
           ${r.ingredients.slice(0, 5).map(i => `<li>${i.quantity ? esc(String(i.quantity)) + " " : ""}${esc(i.unit)} ${esc(i.name)}</li>`).join("")}
@@ -154,7 +157,7 @@ async function cloneRecipe(id) {
       body: {
         name: source.name, description: source.description || null, servings: source.servings,
         cooking_time_minutes: source.time, instructions: source.instructions || null,
-        image_url: source.imageUrl || null, user_id: window.currentUserId, is_public: false
+        image_url: source.imageUrl || null, icon: source.icon, user_id: window.currentUserId, is_public: false
       }
     }))[0];
 
@@ -206,6 +209,13 @@ function openRecipeModal(id = null) {
       <div class="field full">
         <label>Photo URL</label>
         <input id="rImageUrl" value="${recipe ? esc(recipe.imageUrl) : ""}" placeholder="Optional — link to an image already online">
+      </div>
+      <div class="field full">
+        <label>Icon</label>
+        <input id="rIcon" value="${recipe ? esc(recipe.icon) : "🍳"}" maxlength="4" style="width:70px; text-align:center; font-size:20px;">
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:8px;">
+          ${RECIPE_EMOJI_CHOICES.map(e => `<button type="button" onclick="document.getElementById('rIcon').value='${e}'" style="border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:5px 8px; font-size:16px; cursor:pointer;">${e}</button>`).join("")}
+        </div>
       </div>
       <div class="field">
         <label>Servings</label>
@@ -380,6 +390,7 @@ async function saveRecipe() {
   const time = Number(document.getElementById("rTime").value) || 0;
   const description = document.getElementById("rDescription").value.trim();
   const imageUrl = document.getElementById("rImageUrl").value.trim();
+  const icon = document.getElementById("rIcon").value.trim() || "🍳";
   const instructions = document.getElementById("rInstructions").value.trim();
 
   // Validate every ingredient row BEFORE any Supabase call is made.
@@ -399,7 +410,7 @@ async function saveRecipe() {
   try {
     const recipePayload = {
       name, description: description || null, servings,
-      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null
+      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null, icon
     };
 
     if (state.editingRecipeId) {

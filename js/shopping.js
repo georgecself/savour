@@ -176,7 +176,7 @@ async function loadFoodContributions(foodItems) {
   const encoded = foodIds.map(id => `"${id}"`).join(",");
 
   const foods = await supabaseRequest("foods", {
-    query: `?select=id,name,brand,price,shopping_category&id=in.(${encoded})`
+    query: `?select=id,name,brand,price,shopping_category,icon&id=in.(${encoded})`
   });
   const foodsById = Object.fromEntries(foods.map(f => [f.id, f]));
 
@@ -192,6 +192,7 @@ async function loadFoodContributions(foodItems) {
       foodId,
       label: food.brand ? `${food.name} (${food.brand})` : food.name,
       category: food.shopping_category || "Other",
+      icon: food.icon || "🥫",
       qty,
       unitPrice: food.price !== null && food.price !== undefined ? food.price : null
     };
@@ -270,7 +271,7 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
 
     if (owned > 0 && remaining <= 0) {
       coveredRows.push({
-        icon: "🥫", category: row.category, label: row.label,
+        icon: row.icon, category: row.category, label: row.label,
         qtyLabel: `need ×${formatQty(row.qty)} — have ×${formatQty(owned)}`,
         price: null, key: `food:${row.foodId}`,
         type: "food", refId: row.foodId, unit: null, needQty: 0
@@ -279,7 +280,7 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
     }
 
     buyRows.push({
-      icon: "🥫", category: row.category, label: row.label,
+      icon: row.icon, category: row.category, label: row.label,
       qtyLabel: `×${formatQty(remaining)}${owned > 0 ? ` (have ×${formatQty(owned)} already)` : ""}`,
       price: row.unitPrice !== null ? row.unitPrice * remaining : null,
       key: `food:${row.foodId}`,
