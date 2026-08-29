@@ -32,8 +32,8 @@ function setStatus(message) {
 
 function coverPlaceholderSvg(size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="13" cy="13" r="12" stroke="#4B5D32" stroke-width="1.5"/>
-    <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" fill="#4B5D32"/>
+    <circle cx="13" cy="13" r="12" style="stroke:var(--accent)" stroke-width="1.5"/>
+    <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" style="fill:var(--accent)"/>
   </svg>`;
 }
 

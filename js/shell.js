@@ -34,9 +34,9 @@ const NAV_ICON_SVGS = {
 };
 
 const LOGO_SVG = `<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="13" cy="13" r="12" stroke="#4B5D32" stroke-width="2"/>
-  <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" fill="#4B5D32"/>
-  <path d="M13 8V5" stroke="#4B5D32" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="13" cy="13" r="12" style="stroke:var(--accent)" stroke-width="2"/>
+  <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" style="fill:var(--accent)"/>
+  <path d="M13 8V5" style="stroke:var(--accent)" stroke-width="2" stroke-linecap="round"/>
 </svg>`;
 
 function currentPageName() {
@@ -60,7 +60,10 @@ function buildShellStructure() {
   document.body.innerHTML = `
     <div class="mobile-topbar">
       <a href="dashboard.html" class="sidebar-logo">${LOGO_SVG}<span class="sidebar-logo-text">Savour</span></a>
-      <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="theme-toggle-btn sidebar-collapse-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">${themeToggleIcon()}</button>
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+      </div>
     </div>
 
     <div class="mobile-menu-popup" id="mobileMenuPopup" onclick="if(event.target===this)toggleMobileMenu()">
@@ -75,9 +78,12 @@ function buildShellStructure() {
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-top-row">
           <a href="dashboard.html" class="sidebar-logo">${LOGO_SVG}<span class="sidebar-logo-text">Savour</span></a>
-          <button class="sidebar-collapse-btn" onclick="toggleSidebar()" aria-label="Collapse menu" title="Collapse menu">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
-          </button>
+          <div class="sidebar-top-btns">
+            <button class="theme-toggle-btn sidebar-collapse-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">${themeToggleIcon()}</button>
+            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" aria-label="Collapse menu" title="Collapse menu">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+          </div>
         </div>
         <nav class="sidebar-nav">${navLinksHtml()}</nav>
         <div id="adminSlot"></div>
@@ -113,6 +119,25 @@ function toggleSidebar() {
 
 function toggleMobileMenu() {
   document.getElementById("mobileMenuPopup").classList.toggle("open");
+}
+
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
+
+function themeToggleIcon() {
+  // Icon shown is what clicking will switch TO.
+  return currentTheme() === "dark"
+    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
+}
+
+function toggleTheme() {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  if (next === "dark") document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
+  localStorage.setItem("savour_theme", next);
+  document.querySelectorAll(".theme-toggle-btn").forEach(btn => { btn.innerHTML = themeToggleIcon(); });
 }
 
 function initials(name, email) {
