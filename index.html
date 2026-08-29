@@ -23,16 +23,34 @@
   .tag-badge:hover { filter:brightness(0.95); }
   .item-name { font-size:13px; font-weight:600; word-break:break-word; }
   .item-sub { font-size:11px; color:var(--muted); margin-top:1px; }
-  .item-actions { display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
-  .item-actions button { border:0; background:transparent; color:var(--muted); font-size:14px; padding:2px; cursor:pointer; line-height:1; }
-  .edit-item:hover { color:var(--accent-dark); }
-  .remove-item:hover { color:var(--rust); }
   .no-items { color:var(--muted); font-size:12px; padding:8px 2px 4px; }
   .add-day-btn { margin-top:auto; width:100%; border:1px dashed var(--line); background:transparent; border-radius:10px; padding:9px; color:var(--muted); font-size:13px; cursor:pointer; }
   .add-day-btn:hover { background:var(--surface-2); }
-  .mark-btn { margin-top:6px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent-dark); font-size:11px; padding:4px 9px; border-radius:7px; cursor:pointer; }
-  .mark-btn:hover { filter:brightness(0.96); }
   .applied-note { color:var(--success); font-weight:600; margin-top:5px; }
+
+  /* Hero-style cards for items with a cover photo (recipes only) */
+  .item-hero { position:relative; border-radius:10px; overflow:hidden; margin-bottom:8px; min-height:104px; background-size:cover; background-position:center; display:flex; align-items:flex-end; }
+  .item-hero::before { content:""; position:absolute; inset:0; background:linear-gradient(to top, rgba(20,16,10,.8) 0%, rgba(20,16,10,.3) 55%, rgba(20,16,10,0) 100%); }
+  .hero-content { position:relative; z-index:1; padding:10px; width:100%; }
+  .item-hero .tag-badge { background:rgba(255,255,255,.92); }
+  .item-hero .item-name { color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.5); }
+  .item-hero .item-sub { color:rgba(255,255,255,.9); text-shadow:0 1px 3px rgba(0,0,0,.5); }
+  .item-hero .applied-note { color:#baf0c2; }
+
+  /* Shared kebab menu (both card styles) */
+  .item-menu-wrap { position:relative; flex-shrink:0; }
+  .item-hero .item-menu-wrap { position:absolute; top:8px; right:8px; z-index:2; }
+  .kebab-btn { width:26px; height:26px; border-radius:50%; border:0; cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; }
+  .item-row .kebab-btn { background:transparent; color:var(--muted); }
+  .item-row .kebab-btn:hover { background:var(--surface); color:var(--text); }
+  .item-hero .kebab-btn { background:rgba(0,0,0,.4); color:#fff; }
+  .item-hero .kebab-btn:hover { background:rgba(0,0,0,.6); }
+  .item-menu { display:none; position:absolute; top:30px; right:0; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 18px rgba(43,38,32,.18); min-width:150px; padding:5px; z-index:5; }
+  .item-menu.open { display:block; }
+  .item-menu button { display:block; width:100%; text-align:left; background:transparent; border:0; padding:8px 9px; border-radius:7px; font-size:13px; cursor:pointer; color:var(--text); }
+  .item-menu button:hover { background:var(--surface-2); }
+  .item-menu button.danger { color:var(--rust); }
+  .item-menu button.danger:hover { background:var(--rust-soft); }
 
   .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(43,38,32,.4); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
@@ -330,29 +348,63 @@ function renderItemRow(item, isoToDay) {
 
   const showMarkAction = !isLeftover; // leftovers don't trigger a new pantry deduction
   const markLabel = item.type === "recipe" ? "cooked" : "eaten";
-  const thumb = item.imageUrl
-    ? `<img class="item-thumb" src="${esc(item.imageUrl)}" alt="" onerror="this.outerHTML=itemThumbPlaceholder()">`
-    : itemThumbPlaceholder();
+  const menuHtml = renderItemMenu(item, showMarkAction, markLabel);
+
+  // Foods no longer carry a photo, so only a recipe cook/leftover entry with
+  // an image gets the full hero treatment — everything else stays compact.
+  if (item.imageUrl) {
+    return `
+      <div class="item-hero" style="background-image:url('${esc(item.imageUrl)}')">
+        ${menuHtml}
+        <div class="hero-content">
+          <div class="tag-badge" title="Click to edit" onclick="openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
+          <div class="item-name">${esc(item.name)}${qtyLabel}</div>
+          ${subLabel ? `<div class="item-sub">${esc(subLabel)}</div>` : ""}
+          ${showMarkAction && item.pantryAppliedAt ? `<div class="item-sub applied-note">✓ Marked ${markLabel}</div>` : ""}
+        </div>
+      </div>
+    `;
+  }
 
   return `
     <div class="item-row">
-      ${thumb}
+      ${itemThumbPlaceholder()}
       <div class="item-main">
         <div class="tag-badge" title="Click to edit" onclick="openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
         <div class="item-name">${esc(item.name)}${qtyLabel}</div>
         ${subLabel ? `<div class="item-sub">${esc(subLabel)}</div>` : ""}
-        ${showMarkAction ? (item.pantryAppliedAt
-          ? `<div class="item-sub applied-note">✓ Marked ${markLabel} — pantry updated</div>`
-          : `<button class="mark-btn" onclick="${item.type === "recipe" ? `openMarkCookedModal('${item.id}')` : `openMarkEatenModal('${item.id}')`}">🍽 Mark as ${markLabel}</button>`
-        ) : ""}
+        ${showMarkAction && item.pantryAppliedAt ? `<div class="item-sub applied-note">✓ Marked ${markLabel} — pantry updated</div>` : ""}
       </div>
-      <div class="item-actions">
-        <button class="edit-item" title="Edit" onclick="openEditModal('${item.id}')">✏️</button>
-        <button class="remove-item" title="Remove" onclick="removeItem('${item.id}')">×</button>
+      ${menuHtml}
+    </div>
+  `;
+}
+
+function renderItemMenu(item, showMarkAction, markLabel) {
+  const markAction = item.type === "recipe" ? `openMarkCookedModal('${item.id}')` : `openMarkEatenModal('${item.id}')`;
+  return `
+    <div class="item-menu-wrap">
+      <button class="kebab-btn" onclick="toggleItemMenu(event,'${item.id}')" aria-label="Options">⋮</button>
+      <div class="item-menu" id="menu-${item.id}">
+        <button onclick="openEditModal('${item.id}')">✏️ Edit</button>
+        ${showMarkAction && !item.pantryAppliedAt ? `<button onclick="${markAction}">🍽 Mark as ${markLabel}</button>` : ""}
+        <button class="danger" onclick="removeItem('${item.id}')">🗑 Remove</button>
       </div>
     </div>
   `;
 }
+
+function toggleItemMenu(event, itemId) {
+  event.stopPropagation();
+  const menu = document.getElementById(`menu-${itemId}`);
+  const wasOpen = menu.classList.contains("open");
+  document.querySelectorAll(".item-menu.open").forEach(m => m.classList.remove("open"));
+  if (!wasOpen) menu.classList.add("open");
+}
+
+document.addEventListener("click", () => {
+  document.querySelectorAll(".item-menu.open").forEach(m => m.classList.remove("open"));
+});
 
 function itemThumbPlaceholder() {
   return `<div class="item-thumb cover-placeholder"><svg width="16" height="16" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -17,8 +17,6 @@
   .food-table td { padding:12px 14px; border-bottom:1px solid #f0f0ed; font-size:14px; white-space:nowrap; }
   .food-table td.wrap { white-space:normal; }
   .food-table .num { color:#5a5c56; }
-  .food-thumb { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; object-fit:cover; vertical-align:middle; margin-right:8px; background:#f0f0ed; }
-  .food-thumb.cover-placeholder { background:var(--accent-soft); }
   .owner-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; }
   .actions { display:flex; gap:7px; }
   .empty-state { color:var(--muted); padding:30px; text-align:center; }
@@ -136,11 +134,6 @@
       <div class="field">
         <label>Fat (g)</label>
         <input id="foodFat" type="number" step="any" min="0">
-      </div>
-
-      <div class="field full">
-        <label>Photo URL</label>
-        <input id="foodImageUrl" placeholder="Optional — link to an image already online">
       </div>
 
       <div class="section-label">Shopping</div>
