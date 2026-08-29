@@ -141,7 +141,7 @@ async function loadProfileIntoShell() {
   const profileHtml = `
     <button class="sidebar-profile-btn" onclick="window.location.href='settings.html'">
       <div class="sidebar-avatar">${avatarInner}</div>
-      <div>
+      <div class="sidebar-profile-text">
         <div class="sidebar-profile-name">${esc(name)}</div>
         <div class="sidebar-profile-plan">${esc(plan)}</div>
       </div>
