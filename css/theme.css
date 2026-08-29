@@ -12,6 +12,7 @@
   --accent: #4B5D32;
   --accent-dark: #33401F;
   --accent-soft: #E3E7D6;
+  --on-light-chip: #33401F; /* fixed dark text for chips with a constant light/white background, regardless of theme */
 
   --rust: #A8462A;
   --rust-dark: #7C3220;
