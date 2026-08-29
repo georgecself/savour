@@ -94,13 +94,15 @@ async function loadShoppingList() {
     const recipeItems = items.filter(i => i.recipe_id && !i.leftover_of);
     const foodItems = items.filter(i => i.food_id);
 
-    const [ingredientRows, foodRows, pantryItems] = await Promise.all([
+    const [ingredientRows, foodRows, pantryItems, cheapestPrices] = await Promise.all([
       loadIngredientContributions(recipeItems),
       loadFoodContributions(foodItems),
-      supabaseRequest("pantry_items", { query: `?select=ingredient_id,food_id,quantity,unit&user_id=eq.${window.currentUserId}` })
+      supabaseRequest("pantry_items", { query: `?select=ingredient_id,food_id,quantity,unit&user_id=eq.${window.currentUserId}` }),
+      loadCheapestPrices()
     ]);
 
     const { buyRows, coveredRows, reminderRows } = applyPantry(ingredientRows, foodRows, pantryItems);
+    applyPricing(buyRows, cheapestPrices);
 
     render(buyRows, coveredRows, reminderRows);
     setDbStatus("Connected to Supabase");
@@ -288,6 +290,52 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
   return { buyRows, coveredRows, reminderRows };
 }
 
+// ---------- Pricing (from logged product_prices) ----------
+
+async function loadCheapestPrices() {
+  const rows = await supabaseRequest("product_prices", {
+    query: "?select=ingredient_id,food_id,store,brand,pack_unit,unit_price,price&order=unit_price.asc"
+  });
+
+  // Since rows are sorted cheapest-first, the first one seen per item wins.
+  const cheapestByIngredient = {};
+  const cheapestByFood = {};
+  rows.forEach(r => {
+    if (r.ingredient_id && !cheapestByIngredient[r.ingredient_id]) cheapestByIngredient[r.ingredient_id] = r;
+    if (r.food_id && !cheapestByFood[r.food_id]) cheapestByFood[r.food_id] = r;
+  });
+  return { cheapestByIngredient, cheapestByFood };
+}
+
+function applyPricing(buyRows, { cheapestByIngredient, cheapestByFood }) {
+  buyRows.forEach(row => {
+    if (row.type === "ingredient") {
+      const cheapest = cheapestByIngredient[row.refId];
+      if (!cheapest) return;
+      const storeLabel = cheapest.brand ? `${cheapest.store} (${cheapest.brand})` : cheapest.store;
+      if (row.unit && cheapest.pack_unit && row.unit.toLowerCase() === cheapest.pack_unit.toLowerCase() && row.needQty) {
+        // Units line up — safe to compute an actual cost for this row.
+        row.price = cheapest.unit_price * row.needQty;
+        row.priceSource = `£${cheapest.unit_price.toFixed(2)}/${cheapest.pack_unit} at ${storeLabel}`;
+      } else {
+        // Units don't match what the recipe needs — show it, don't total it.
+        row.priceHint = `~£${cheapest.unit_price.toFixed(2)}/${cheapest.pack_unit} at ${storeLabel}`;
+      }
+    } else if (row.type === "food") {
+      const cheapest = cheapestByFood[row.refId];
+      if (!cheapest) return;
+      // Foods are already unit-counted, so a logged price straightforwardly
+      // replaces (if cheaper than) whatever the Foods page itself has on record.
+      const computed = cheapest.unit_price * (row.needQty || 0);
+      if (row.price === null || computed < row.price) {
+        row.price = computed;
+        const storeLabel = cheapest.brand ? `${cheapest.store} (${cheapest.brand})` : cheapest.store;
+        row.priceSource = `£${cheapest.unit_price.toFixed(2)} at ${storeLabel}`;
+      }
+    }
+  });
+}
+
 function render(buyRows, coveredRows, reminderRows) {
   lastBuyRows = buyRows;
   const allRows = [...buyRows, ...coveredRows, ...reminderRows];
@@ -328,9 +376,12 @@ function render(buyRows, coveredRows, reminderRows) {
           ${rows.map(row => `
             <div class="shop-row ${checkedKeys.has(row.key) ? "checked" : ""}">
               <input type="checkbox" ${checkedKeys.has(row.key) ? "checked" : ""} onchange="toggleChecked('${row.key.replace(/'/g, "\\'")}', this)">
-              <div class="shop-label"><span class="shop-icon">${row.icon}</span>${esc(row.label)}</div>
+              <div class="shop-label">
+                <span class="shop-icon">${row.icon}</span>${esc(row.label)}
+                ${row.priceHint ? `<div style="font-size:11px; color:var(--muted);">${esc(row.priceHint)}</div>` : ""}
+              </div>
               <div class="shop-qty">${esc(row.qtyLabel)}</div>
-              ${row.price !== null ? `<div class="shop-price">£${row.price.toFixed(2)}</div>` : ""}
+              ${row.price !== null ? `<div class="shop-price">£${row.price.toFixed(2)}${row.priceSource ? `<br><span style="font-weight:400; font-size:10px; color:var(--muted);">${esc(row.priceSource)}</span>` : ""}</div>` : ""}
             </div>
           `).join("")}
         </div>
@@ -385,7 +436,7 @@ function renderSummary(buyRows, coveredRows, reminderRows) {
     ${coveredRows.length ? `<div class="summary-pill">${coveredRows.length} covered by pantry</div>` : ""}
     ${reminderRows.length ? `<div class="summary-pill">🧂 ${reminderRows.length} staples to check</div>` : ""}
     ${totalCost > 0 ? `<div class="summary-pill">Est. £${totalCost.toFixed(2)}</div>` : ""}
-    <div class="summary-note">Cost estimate covers priced foods only — recipe ingredients aren't priced yet.</div>
+    <div class="summary-note">Only covers items with a logged price on the Prices page (or foods with a price set) — everything else is unpriced for now.</div>
   `;
 }
 
