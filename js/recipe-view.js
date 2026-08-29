@@ -21,7 +21,7 @@ async function load() {
   try {
     setStatus("Loading…");
     const rows = await supabaseRequest("recipes", {
-      query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,icon,is_public&id=eq.${id}&limit=1`
+      query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,is_public&id=eq.${id}&limit=1`
     });
 
     if (!rows.length) {
@@ -38,7 +38,7 @@ async function load() {
     recipe = {
       id: r.id, userId: r.user_id, name: r.name, description: r.description || "",
       baseServings: r.servings || 2, time: r.cooking_time_minutes || 0,
-      instructions: r.instructions || "", imageUrl: r.image_url || "", icon: r.icon || "🍳", isPublic: r.is_public,
+      instructions: r.instructions || "", imageUrl: r.image_url || "", isPublic: r.is_public,
       ingredients: ingredientRows.map(ri => ({
         name: ri.ingredients?.name || "(deleted ingredient)",
         unit: ri.unit || "",
@@ -62,7 +62,7 @@ function render() {
     ${recipe.imageUrl ? `<img class="hero-img" src="${esc(recipe.imageUrl)}" alt="" onerror="this.style.display='none'">` : ""}
 
     <div class="rv-header">
-      <h1>${recipe.icon} ${esc(recipe.name)}</h1>
+      <h1>${esc(recipe.name)}</h1>
       ${recipe.description ? `<p class="rv-description">${esc(recipe.description)}</p>` : ""}
       <div class="rv-meta">
         <span>${recipe.time ? recipe.time + " mins" : "No time set"}</span>
@@ -182,7 +182,7 @@ async function cloneRecipe() {
       body: {
         name: recipe.name, description: recipe.description || null, servings: recipe.baseServings,
         cooking_time_minutes: recipe.time || null, instructions: recipe.instructions || null,
-        image_url: recipe.imageUrl || null, icon: recipe.icon, user_id: window.currentUserId, is_public: false
+        image_url: recipe.imageUrl || null, user_id: window.currentUserId, is_public: false
       }
     }))[0];
 

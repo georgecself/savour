@@ -30,13 +30,18 @@ function setStatus(message) {
   els.status.textContent = message;
 }
 
-// ---------- Loading ----------
+function coverPlaceholderSvg(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="13" cy="13" r="12" stroke="#4B5D32" stroke-width="1.5"/>
+    <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" fill="#4B5D32"/>
+  </svg>`;
+}
 
-const RECIPE_EMOJI_CHOICES = ["🍳","🍝","🍕","🍗","🥩","🍜","🍲","🥘","🍛","🌮","🥙","🥞","🧇","🍰","🍪","🥗","🍱","🍣","🥪","🍔"];
+// ---------- Loading ----------
 
 async function loadRecipesMatching(query) {
   const recipes = await supabaseRequest("recipes", {
-    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,icon,is_public&${query}&order=name.asc`
+    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,is_public&${query}&order=name.asc`
   });
 
   const recipeIds = recipes.map(r => r.id);
@@ -57,8 +62,7 @@ async function loadRecipesMatching(query) {
     time: r.cooking_time_minutes || 30,
     instructions: r.instructions || "",
     imageUrl: r.image_url || "",
-    icon: r.icon || "🍳",
-    isPublic: r.is_public,
+        isPublic: r.is_public,
     ingredients: recipeIngredients
       .filter(ri => ri.recipe_id === r.id)
       .map(ri => ({
@@ -122,12 +126,15 @@ function renderRecipeList() {
 
   els.grid.innerHTML = filtered.map(r => {
     const isMine = r.userId === window.currentUserId;
+    const cover = r.imageUrl
+      ? `<img class="recipe-card-img" src="${esc(r.imageUrl)}" alt="" onerror="this.parentElement.innerHTML=coverPlaceholderSvg(130)">`
+      : `<div class="recipe-card-img cover-placeholder" style="height:130px;">${coverPlaceholderSvg(36)}</div>`;
     return `
     <div class="card recipe-card">
-      ${r.imageUrl ? `<img class="recipe-card-img" src="${esc(r.imageUrl)}" alt="" onerror="this.style.display='none'">` : ""}
+      ${cover}
       <div class="recipe-card-body">
         ${state.activeTab === "library" ? `<div class="owner-badge">${isMine ? "Yours · published" : "Shared"}</div>` : ""}
-        <h3>${r.icon} ${esc(r.name)}</h3>
+        <h3>${esc(r.name)}</h3>
         <div class="meta">Serves ${r.servings} · ${r.time} mins · ${r.ingredients.length} ingredient${r.ingredients.length === 1 ? "" : "s"}</div>
         <ul>
           ${r.ingredients.slice(0, 5).map(i => `<li>${i.quantity ? esc(String(i.quantity)) + " " : ""}${esc(i.unit)} ${esc(i.name)}</li>`).join("")}
@@ -157,7 +164,7 @@ async function cloneRecipe(id) {
       body: {
         name: source.name, description: source.description || null, servings: source.servings,
         cooking_time_minutes: source.time, instructions: source.instructions || null,
-        image_url: source.imageUrl || null, icon: source.icon, user_id: window.currentUserId, is_public: false
+        image_url: source.imageUrl || null, user_id: window.currentUserId, is_public: false
       }
     }))[0];
 
@@ -209,13 +216,6 @@ function openRecipeModal(id = null) {
       <div class="field full">
         <label>Photo URL</label>
         <input id="rImageUrl" value="${recipe ? esc(recipe.imageUrl) : ""}" placeholder="Optional — link to an image already online">
-      </div>
-      <div class="field full">
-        <label>Icon</label>
-        <input id="rIcon" value="${recipe ? esc(recipe.icon) : "🍳"}" maxlength="4" style="width:70px; text-align:center; font-size:20px;">
-        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:8px;">
-          ${RECIPE_EMOJI_CHOICES.map(e => `<button type="button" onclick="document.getElementById('rIcon').value='${e}'" style="border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:5px 8px; font-size:16px; cursor:pointer;">${e}</button>`).join("")}
-        </div>
       </div>
       <div class="field">
         <label>Servings</label>
@@ -390,7 +390,6 @@ async function saveRecipe() {
   const time = Number(document.getElementById("rTime").value) || 0;
   const description = document.getElementById("rDescription").value.trim();
   const imageUrl = document.getElementById("rImageUrl").value.trim();
-  const icon = document.getElementById("rIcon").value.trim() || "🍳";
   const instructions = document.getElementById("rInstructions").value.trim();
 
   // Validate every ingredient row BEFORE any Supabase call is made.
@@ -410,7 +409,7 @@ async function saveRecipe() {
   try {
     const recipePayload = {
       name, description: description || null, servings,
-      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null, icon
+      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null
     };
 
     if (state.editingRecipeId) {

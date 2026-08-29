@@ -1,5 +1,4 @@
 const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
-const FOOD_EMOJI_CHOICES = ["🥫","🥤","🧃","🍎","🍌","🥑","🧀","🥛","🍫","🥜","🍞","🥨","🍿","🍯","🥚","🧈","🥓","🍇","🍓","🫐"];
 
 const state = {
   myFoods: [],
@@ -23,7 +22,6 @@ const els = {
   carbs: document.getElementById("foodCarbs"),
   fat: document.getElementById("foodFat"),
   imageUrl: document.getElementById("foodImageUrl"),
-  icon: document.getElementById("foodIcon"),
   price: document.getElementById("foodPrice"),
   add: document.getElementById("addFoodBtn"),
   cancel: document.getElementById("cancelBtn"),
@@ -40,7 +38,14 @@ function fmtNum(n, suffix = "") {
   return n === null || n === undefined ? "—" : `${n}${suffix}`;
 }
 
-const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,image_url,icon,is_public,created_at";
+function coverPlaceholderSvg(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="13" cy="13" r="12" stroke="#4B5D32" stroke-width="1.5"/>
+    <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" fill="#4B5D32"/>
+  </svg>`;
+}
+
+const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,image_url,is_public,created_at";
 
 async function loadFoodsMatching(query) {
   return supabaseRequest("foods", { query: `?select=${FOOD_SELECT}&${query}&order=name.asc` });
@@ -121,8 +126,11 @@ function renderFoods() {
           return `
           <tr>
             <td class="wrap">
-              ${item.image_url ? `<img class="food-thumb" src="${esc(item.image_url)}" alt="" onerror="this.style.display='none'">` : ""}
-              <strong>${item.icon || "🥫"} ${esc(item.name)}</strong>
+              ${item.image_url
+                ? `<img class="food-thumb" src="${esc(item.image_url)}" alt="" onerror="this.style.display='none'">`
+                : `<span class="food-thumb cover-placeholder">${coverPlaceholderSvg(16)}</span>`
+              }
+              <strong>${esc(item.name)}</strong>
               ${state.activeTab === "library" ? `<br><span class="owner-badge">${isMine ? "Yours" : "Shared"}</span>` : ""}
             </td>
             <td>${esc(item.brand || "—")}</td>
@@ -161,7 +169,7 @@ async function cloneFood(id) {
         name: source.name, brand: source.brand, shopping_category: source.shopping_category,
         serving_size: source.serving_size, serving_unit: source.serving_unit,
         calories: source.calories, protein_g: source.protein_g, carbohydrates_g: source.carbohydrates_g,
-        fat_g: source.fat_g, price: source.price, image_url: source.image_url, icon: source.icon,
+        fat_g: source.fat_g, price: source.price, image_url: source.image_url,
         user_id: window.currentUserId, is_public: false
       }
     });
@@ -185,7 +193,6 @@ function fillForm(item) {
   els.carbs.value = item?.carbohydrates_g ?? "";
   els.fat.value = item?.fat_g ?? "";
   els.imageUrl.value = item?.image_url || "";
-  els.icon.value = item?.icon || "🥫";
   els.price.value = item?.price ?? "";
 }
 
@@ -235,7 +242,6 @@ async function saveFood() {
     carbohydrates_g: numOrNull(els.carbs.value),
     fat_g: numOrNull(els.fat.value),
     image_url: els.imageUrl.value.trim() || null,
-    icon: els.icon.value.trim() || "🥫",
     price: numOrNull(els.price.value)
   };
 
@@ -294,9 +300,6 @@ els.cancel.addEventListener("click", closeModal);
 els.save.addEventListener("click", saveFood);
 els.search.addEventListener("input", renderFoods);
 
-document.getElementById("foodIconPalette").innerHTML = FOOD_EMOJI_CHOICES.map(e =>
-  `<button type="button" onclick="els.icon.value='${e}'" style="border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:5px 8px; font-size:16px; cursor:pointer;">${e}</button>`
-).join("");
 
 els.modal.addEventListener("click", event => {
   if (event.target === els.modal) closeModal();
