@@ -43,14 +43,14 @@ async function handleSubmit() {
     if (mode === "signin") {
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      window.location.href = "index.html";
+      window.location.href = "dashboard.html";
     } else {
       const { data, error } = await supabaseClient.auth.signUp({ email, password });
       if (error) throw error;
 
       if (data.session) {
         // Email confirmation is off — signed in immediately.
-        window.location.href = "index.html";
+        window.location.href = "dashboard.html";
       } else {
         showMessage("Account created — check your email to confirm before signing in.", "success");
       }
