@@ -1017,21 +1017,3 @@ function downloadWeekAsPdf() {
   window.onafterprint = function () { window.close(); };
 </script>
 </body></html>`;
-
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    alert("Your browser blocked the new tab needed for this — please allow pop-ups for this site and try again.");
-    return;
-  }
-  printWindow.document.write(html);
-  printWindow.document.close();
-}
-
-(async function init() {
-  const uid = await window.authReady;
-  if (!uid) return; // redirecting to login
-  await loadAll();
-})();
-</script>
-</body>
-</html>
