@@ -380,7 +380,7 @@ function renderItemRow(item, isoToDay) {
       <a href="recipe-view.html?id=${item.refId}" class="item-hero" style="background-image:url('${esc(item.imageUrl)}')">
         ${menuHtml}
         <div class="hero-content">
-          <div class="tag-badge" title="Click to edit" onclick="event.stopPropagation(); openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
+          <div class="tag-badge" title="Click to edit" onclick="event.stopPropagation(); event.preventDefault(); openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
           <div class="item-name">${esc(item.name)}${qtyLabel}</div>
           ${subLabel ? `<div class="item-sub">${esc(subLabel)}</div>` : ""}
           ${showMarkAction && item.pantryAppliedAt ? `<div class="item-sub applied-note">✓ Marked ${markLabel}</div>` : ""}
@@ -412,7 +412,7 @@ const MENU_ICONS = {
 function renderItemMenu(item, showMarkAction, markLabel) {
   const markAction = item.type === "recipe" ? `openMarkCookedModal('${item.id}')` : `openMarkEatenModal('${item.id}')`;
   return `
-    <div class="item-menu-wrap" onclick="event.stopPropagation()">
+    <div class="item-menu-wrap" onclick="event.stopPropagation(); event.preventDefault();">
       <button class="kebab-btn" onclick="toggleItemMenu(event,'${item.id}')" aria-label="Options">⋮</button>
       <div class="item-menu" id="menu-${item.id}">
         <button onclick="openEditModal('${item.id}')">${MENU_ICONS.edit} Edit</button>
@@ -425,6 +425,7 @@ function renderItemMenu(item, showMarkAction, markLabel) {
 
 function toggleItemMenu(event, itemId) {
   event.stopPropagation();
+  event.preventDefault();
   const menu = document.getElementById(`menu-${itemId}`);
   const wasOpen = menu.classList.contains("open");
   document.querySelectorAll(".item-menu.open").forEach(m => m.classList.remove("open"));
@@ -496,8 +497,8 @@ function renderAddModal() {
       <p class="meta">Pick a recipe or food — you'll set the details next.</p>
 
       <div class="type-toggle">
-        <button type="button" class="type-btn ${addType === "recipe" ? "active" : ""}" onclick="switchAddType('recipe')">🍳 Recipe</button>
-        <button type="button" class="type-btn ${addType === "food" ? "active" : ""}" onclick="switchAddType('food')">🥫 Food</button>
+        <button type="button" class="type-btn ${addType === "recipe" ? "active" : ""}" onclick="switchAddType('recipe')">Recipe</button>
+        <button type="button" class="type-btn ${addType === "food" ? "active" : ""}" onclick="switchAddType('food')">Food</button>
       </div>
 
       <div class="field">
@@ -529,8 +530,8 @@ function renderAddModal() {
 
     ${isRecipe ? `
       <div class="type-toggle">
-        <button type="button" class="type-btn ${addCookMode === "fresh" ? "active" : ""}" onclick="switchCookMode('fresh')">🍳 Cook fresh</button>
-        <button type="button" class="type-btn ${addCookMode === "leftover" ? "active" : ""}" ${eligibleBatches.length ? "" : "disabled"} onclick="switchCookMode('leftover')">🍽 Leftovers${eligibleBatches.length ? "" : " (none yet)"}</button>
+        <button type="button" class="type-btn ${addCookMode === "fresh" ? "active" : ""}" onclick="switchCookMode('fresh')">Cook fresh</button>
+        <button type="button" class="type-btn ${addCookMode === "leftover" ? "active" : ""}" ${eligibleBatches.length ? "" : "disabled"} onclick="switchCookMode('leftover')">Leftovers${eligibleBatches.length ? "" : " (none yet)"}</button>
       </div>
     ` : ""}
 
