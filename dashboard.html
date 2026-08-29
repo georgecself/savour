@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savour — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<style>
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:28px; }
+  .stat-card { padding:18px; }
+  .stat-label { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .stat-value { font-family:var(--font-display); font-size:30px; margin:6px 0 8px; }
+  .stat-link { font-size:12px; text-decoration:none; }
+  .actions-card { padding:22px; }
+  .actions-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+</style>
+</head>
+<body>
+
+<h2 style="margin-bottom:4px;">Welcome back<span id="greetName"></span></h2>
+<p class="meta" style="margin-bottom:26px;">Here's where things stand.</p>
+
+<div class="stat-grid">
+  <div class="card stat-card">
+    <div class="stat-label">This week</div>
+    <div class="stat-value" id="statWeekCount">–</div>
+    <a class="stat-link" href="index.html">Open Week →</a>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Recipes</div>
+    <div class="stat-value" id="statRecipeCount">–</div>
+    <a class="stat-link" href="recipes.html">Open Recipes →</a>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Pantry items</div>
+    <div class="stat-value" id="statPantryCount">–</div>
+    <a class="stat-link" href="pantry.html">Open Pantry →</a>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Active deals logged</div>
+    <div class="stat-value" id="statDealCount">–</div>
+    <a class="stat-link" href="deal-check.html">Check a deal →</a>
+  </div>
+</div>
+
+<div class="card actions-card">
+  <h3>Quick actions</h3>
+  <div class="actions-row">
+    <a class="btn primary" href="index.html">📅 Plan this week</a>
+    <a class="btn" href="shopping.html">🛒 View shopping list</a>
+    <a class="btn" href="deal-check.html">🎯 Check a deal</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth-guard.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
