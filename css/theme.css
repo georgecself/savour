@@ -146,6 +146,7 @@ a { color: var(--accent-dark); }
 /* ---------- Mobile: top bar + floating popup menu ---------- */
 
 .mobile-topbar { display: none; }
+.mobile-menu-popup { display: none; }
 
 @media (max-width: 880px) {
   .sidebar { display: none; }
