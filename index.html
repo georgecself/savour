@@ -22,7 +22,7 @@
   .day-name { font-weight:700; }
   .day-date { font-size:12px; color:var(--muted); margin-top:2px; }
 
-  .item-row { display:flex; align-items:flex-start; gap:9px; padding:10px; margin-bottom:8px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+  .item-row { position:relative; display:flex; align-items:flex-start; gap:9px; padding:10px; margin-bottom:8px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
   .item-thumb { width:34px; height:34px; border-radius:8px; object-fit:cover; flex-shrink:0; margin-top:1px; }
   .item-thumb.cover-placeholder { display:flex; align-items:center; justify-content:center; background:var(--accent-soft); }
   .item-thumb.cover-placeholder svg { opacity:.6; }
@@ -428,13 +428,23 @@ function toggleItemMenu(event, itemId) {
   event.preventDefault();
   const menu = document.getElementById(`menu-${itemId}`);
   const wasOpen = menu.classList.contains("open");
-  document.querySelectorAll(".item-menu.open").forEach(m => m.classList.remove("open"));
-  if (!wasOpen) menu.classList.add("open");
+  closeAllItemMenus();
+  if (!wasOpen) {
+    menu.classList.add("open");
+    const card = menu.closest(".item-row, .item-hero");
+    if (card) card.style.zIndex = "20"; // lifts the whole card above sibling cards while its menu is open
+  }
 }
 
-document.addEventListener("click", () => {
-  document.querySelectorAll(".item-menu.open").forEach(m => m.classList.remove("open"));
-});
+function closeAllItemMenus() {
+  document.querySelectorAll(".item-menu.open").forEach(m => {
+    m.classList.remove("open");
+    const card = m.closest(".item-row, .item-hero");
+    if (card) card.style.zIndex = "";
+  });
+}
+
+document.addEventListener("click", closeAllItemMenus);
 
 function itemThumbPlaceholder() {
   return `<div class="item-thumb cover-placeholder"><svg width="16" height="16" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
