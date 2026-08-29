@@ -33,6 +33,32 @@
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+[data-theme="dark"] {
+  --bg: #211D18;
+  --surface: #2B2620;
+  --surface-2: #342E27;
+  --line: #453E34;
+  --muted: #A79A87;
+  --text: #F1EAD9;
+
+  --accent: #8FAE63;
+  --accent-dark: #C4DBA6;
+  --accent-soft: #3A4530;
+
+  --rust: #E4926E;
+  --rust-dark: #F2C1A9;
+  --rust-soft: #4A2A1F;
+
+  --gold: #E8B85C;
+  --gold-dark: #F5D48F;
+  --gold-soft: #4A3A17;
+
+  --danger: #E4926E;
+  --danger-soft: #4A2A1F;
+  --success: #8FAE63;
+  --success-soft: #3A4530;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -41,6 +67,7 @@ body {
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  transition: background-color .15s ease, color .15s ease;
 }
 
 h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; }
@@ -69,6 +96,7 @@ a { color: var(--accent-dark); }
 }
 
 .sidebar-top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; padding: 0 4px; }
+.sidebar-top-btns { display: flex; gap: 6px; flex-shrink: 0; }
 .sidebar-logo { display: flex; align-items: center; gap: 9px; text-decoration: none; }
 .sidebar-logo svg { flex-shrink: 0; }
 .sidebar-logo-text { font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--text); }
@@ -106,6 +134,7 @@ a { color: var(--accent-dark); }
   display: none;
 }
 .sidebar.collapsed .sidebar-top-row { flex-direction: column; gap: 10px; }
+.sidebar.collapsed .sidebar-top-btns { flex-direction: column; }
 .sidebar.collapsed .sidebar-nav a { justify-content: center; }
 .sidebar.collapsed .sidebar-profile-btn { justify-content: center; gap: 0; }
 .sidebar.collapsed .status-dot-row { justify-content: center; }
@@ -198,7 +227,7 @@ a { color: var(--accent-dark); }
 
 /* ---------- Shared components (used across every page) ---------- */
 
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); transition: background-color .15s ease, border-color .15s ease; }
 
 .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
 .section-head h2 { font-size: 22px; }
