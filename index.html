@@ -14,7 +14,10 @@
   .day-name { font-weight:700; }
   .day-date { font-size:12px; color:var(--muted); margin-top:2px; }
 
-  .item-row { display:flex; align-items:flex-start; gap:8px; padding:9px; margin-bottom:7px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+  .item-row { display:flex; align-items:flex-start; gap:9px; padding:10px; margin-bottom:8px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+  .item-thumb { width:34px; height:34px; border-radius:8px; object-fit:cover; flex-shrink:0; margin-top:1px; }
+  .item-thumb.cover-placeholder { display:flex; align-items:center; justify-content:center; background:var(--accent-soft); }
+  .item-thumb.cover-placeholder svg { opacity:.6; }
   .item-main { flex:1; min-width:0; }
   .tag-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-bottom:4px; cursor:pointer; }
   .tag-badge:hover { filter:brightness(0.95); }
@@ -186,8 +189,8 @@ async function loadAll() {
     const weekStart = getWeekDates()[0].iso;
 
     const [recipes, foods, plans] = await Promise.all([
-      supabaseRequest("recipes", { query: `?select=id,name,servings,cooking_time_minutes,icon&user_id=eq.${window.currentUserId}&order=name.asc` }),
-      supabaseRequest("foods", { query: `?select=id,name,brand,serving_unit,icon&user_id=eq.${window.currentUserId}&order=name.asc` }),
+      supabaseRequest("recipes", { query: `?select=id,name,servings,cooking_time_minutes,image_url&user_id=eq.${window.currentUserId}&order=name.asc` }),
+      supabaseRequest("foods", { query: `?select=id,name,brand,serving_unit,image_url&user_id=eq.${window.currentUserId}&order=name.asc` }),
       supabaseRequest("meal_plans", { query: `?select=id&week_start=eq.${weekStart}&user_id=eq.${window.currentUserId}&limit=1` })
     ]);
 
@@ -210,7 +213,7 @@ async function loadAll() {
         item = {
           id: raw.id, tag: raw.meal_type, type: "recipe", refId: raw.recipe_id,
           name: recipe ? recipe.name : "(deleted recipe)",
-          icon: recipe?.icon || "🍳",
+          imageUrl: recipe?.image_url || "",
           sub: recipe && recipe.cooking_time_minutes ? `${recipe.cooking_time_minutes} mins` : "",
           portionsMade: raw.portions_made,
           leftoverOf: raw.leftover_of,
@@ -223,7 +226,7 @@ async function loadAll() {
           id: raw.id, tag: raw.meal_type, type: "food", refId: raw.food_id,
           quantity: raw.quantity,
           name: food ? food.name : "(deleted food)",
-          icon: food?.icon || "🥫",
+          imageUrl: food?.image_url || "",
           sub: food ? (food.brand || food.serving_unit || "") : "",
           pantryAppliedAt: raw.pantry_applied_at
         };
@@ -327,12 +330,16 @@ function renderItemRow(item, isoToDay) {
 
   const showMarkAction = !isLeftover; // leftovers don't trigger a new pantry deduction
   const markLabel = item.type === "recipe" ? "cooked" : "eaten";
+  const thumb = item.imageUrl
+    ? `<img class="item-thumb" src="${esc(item.imageUrl)}" alt="" onerror="this.outerHTML=itemThumbPlaceholder()">`
+    : itemThumbPlaceholder();
 
   return `
     <div class="item-row">
+      ${thumb}
       <div class="item-main">
         <div class="tag-badge" title="Click to edit" onclick="openEditModal('${item.id}')">${esc(item.tag || "Meal")}</div>
-        <div class="item-name">${item.icon || (item.type === "recipe" ? "🍳" : "🥫")} ${esc(item.name)}${qtyLabel}</div>
+        <div class="item-name">${esc(item.name)}${qtyLabel}</div>
         ${subLabel ? `<div class="item-sub">${esc(subLabel)}</div>` : ""}
         ${showMarkAction ? (item.pantryAppliedAt
           ? `<div class="item-sub applied-note">✓ Marked ${markLabel} — pantry updated</div>`
@@ -345,6 +352,13 @@ function renderItemRow(item, isoToDay) {
       </div>
     </div>
   `;
+}
+
+function itemThumbPlaceholder() {
+  return `<div class="item-thumb cover-placeholder"><svg width="16" height="16" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="13" cy="13" r="12" stroke="#4B5D32" stroke-width="1.5"/>
+    <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" fill="#4B5D32"/>
+  </svg></div>`;
 }
 
 // ---------- Add-item modal (pick first, THEN details, THEN confirm) ----------
@@ -428,7 +442,7 @@ function renderAddModal() {
   document.getElementById("modal").innerHTML = `
     <h2>Add to ${addModalDayName}</h2>
     <div class="selection-banner">
-      <span>${pendingAddSelection.icon || (isRecipe ? "🍳" : "🥫")} ${esc(pendingAddSelection.name)}</span>
+      <span>${esc(pendingAddSelection.name)}</span>
       <button onclick="backToAddPicker()">Change</button>
     </div>
 
@@ -509,7 +523,7 @@ function renderAddOptions() {
 
   box.innerHTML = filtered.map(x => `
     <div class="add-option" onclick="selectAddItem('${x.id}')">
-      <div>${x.icon || (addType === "recipe" ? "🍳" : "🥫")} ${esc(x.name)}</div>
+      <div>${esc(x.name)}</div>
       <div class="sub">${addType === "recipe" ? (x.cooking_time_minutes ? x.cooking_time_minutes + " mins" : "") : (x.brand || x.serving_unit || "")}</div>
     </div>
   `).join("");
@@ -524,7 +538,7 @@ async function selectAddItem(refId) {
   pendingAddSelection = {
     id: item.id,
     name: item.name,
-    icon: item.icon || (addType === "recipe" ? "🍳" : "🥫"),
+    imageUrl: item.image_url || "",
     sub: addType === "recipe"
       ? (item.cooking_time_minutes ? `${item.cooking_time_minutes} mins` : "")
       : (item.brand || item.serving_unit || "")
@@ -551,7 +565,7 @@ async function confirmAddItem() {
   const isLeftover = isRecipe && addCookMode === "leftover";
 
   const body = { day: addModalIso, meal_type: tag };
-  const localItem = { id: null, tag, type: addType, refId: sel.id, name: sel.name, icon: sel.icon, sub: sel.sub, pantryAppliedAt: null };
+  const localItem = { id: null, tag, type: addType, refId: sel.id, name: sel.name, imageUrl: sel.imageUrl, sub: sel.sub, pantryAppliedAt: null };
 
   if (isRecipe) {
     body.recipe_id = sel.id;
@@ -611,7 +625,7 @@ function openEditModal(itemId) {
   if (isLeftover) { qtyLabel = "Portions eaten"; qtyValue = item.portionsEaten ?? 1; }
 
   document.getElementById("modal").innerHTML = `
-    <h2>Edit ${item.icon || (item.type === "recipe" ? "🍳" : "🥫")} ${esc(item.name)}</h2>
+    <h2>Edit ${esc(item.name)}</h2>
     <p class="meta">Change the tag or amount — to swap the recipe/food itself, remove this and add a new one.</p>
 
     <div class="tag-quantity-row">
