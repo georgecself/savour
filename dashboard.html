@@ -21,8 +21,37 @@
   .stat-label { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
   .stat-value { font-family:var(--font-display); font-size:30px; margin:6px 0 8px; }
   .stat-link { font-size:12px; text-decoration:none; }
-  .actions-card { padding:22px; }
-  .actions-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+
+  .section-label { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 10px; }
+
+  /* Hero card — matches the meal planner's hero card styling */
+  .item-hero { position:relative; border-radius:14px; min-height:220px; background-size:cover; background-position:center; display:flex; align-items:flex-end; text-decoration:none; color:inherit; cursor:pointer; }
+  .item-hero::before { content:""; position:absolute; inset:0; border-radius:14px; background:linear-gradient(to top, rgba(20,16,10,.82) 0%, rgba(20,16,10,.25) 60%, rgba(20,16,10,0) 100%); }
+  .item-hero.no-photo { background-color:var(--accent-soft); }
+  .item-hero.no-photo::before { display:none; }
+  .item-hero.no-photo .hero-content .item-name,
+  .item-hero.no-photo .hero-content .item-sub { color:var(--accent-dark); text-shadow:none; }
+  .hero-content { position:relative; z-index:1; padding:22px; width:100%; }
+  .tag-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-bottom:8px; }
+  .item-hero:not(.no-photo) .tag-badge { background:rgba(255,255,255,.92); color:var(--on-light-chip); }
+  .item-name { font-size:24px; font-weight:700; word-break:break-word; }
+  .item-hero:not(.no-photo) .item-name { color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.5); }
+  .item-sub { font-size:13px; margin-top:5px; color:var(--muted); }
+  .item-hero:not(.no-photo) .item-sub { color:rgba(255,255,255,.9); text-shadow:0 1px 3px rgba(0,0,0,.5); }
+  .hero-goto-btn { position:absolute; top:14px; right:14px; z-index:2; border:0; border-radius:999px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font-body); }
+  .item-hero:not(.no-photo) .hero-goto-btn { background:rgba(0,0,0,.45); color:#fff; }
+  .item-hero:not(.no-photo) .hero-goto-btn:hover { background:rgba(0,0,0,.6); }
+  .item-hero.no-photo .hero-goto-btn { background:rgba(255,255,255,.7); color:var(--accent-dark); }
+  .item-hero.no-photo .hero-goto-btn:hover { background:#fff; }
+  .hero-empty { padding:26px; text-align:center; }
+
+  /* Quick actions — no card/bubble, just icon tiles */
+  .quick-actions-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .quick-action { display:flex; flex-direction:column; align-items:center; gap:9px; text-decoration:none; color:var(--text); padding:16px 22px; border-radius:14px; min-width:110px; transition:background-color .15s ease; }
+  .quick-action:hover { background:var(--surface-2); }
+  .quick-action-icon { width:46px; height:46px; border-radius:50%; background:var(--accent-soft); color:var(--accent-dark); display:flex; align-items:center; justify-content:center; }
+  .quick-action-icon svg { width:20px; height:20px; }
+  .quick-action-label { font-size:13px; font-weight:600; text-align:center; }
 </style>
 </head>
 <body>
@@ -47,20 +76,17 @@
     <a class="stat-link" href="pantry.html">Open Pantry →</a>
   </div>
   <div class="card stat-card">
-    <div class="stat-label">Active deals logged</div>
-    <div class="stat-value" id="statDealCount">–</div>
-    <a class="stat-link" href="deal-check.html">Check a deal →</a>
+    <div class="stat-label">Outstanding on shopping list</div>
+    <div class="stat-value" id="statShoppingCount">–</div>
+    <a class="stat-link" href="shopping.html">Open Shopping →</a>
   </div>
 </div>
 
-<div class="card actions-card">
-  <h3>Quick actions</h3>
-  <div class="actions-row">
-    <a class="btn primary" href="index.html">📅 Plan this week</a>
-    <a class="btn" href="shopping.html">🛒 View shopping list</a>
-    <a class="btn" href="deal-check.html">🎯 Check a deal</a>
-  </div>
-</div>
+<p class="section-label">Up next</p>
+<div id="nextRecipeHero" style="margin-bottom:30px;"></div>
+
+<p class="section-label">Quick actions</p>
+<div class="quick-actions-row" id="quickActions"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>

@@ -1041,6 +1041,11 @@ function downloadWeekAsPdf() {
 (async function init() {
   const uid = await window.authReady;
   if (!uid) return; // redirecting to login
+  const weekParam = new URLSearchParams(window.location.search).get("week");
+  if (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) {
+    const [y, m, d] = weekParam.split("-").map(Number);
+    viewedMonday = getMondayOf(new Date(y, m - 1, d));
+  }
   await loadAll();
 })();
 </script>
