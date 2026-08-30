@@ -119,7 +119,7 @@ async function loadNextRecipe() {
 
   const planIds = plans.map(p => `"${p.id}"`).join(",");
   const items = await supabaseRequest("meal_plan_items", {
-    query: `?select=id,day,meal_type,recipe_id,portions_made&meal_plan_id=in.(${planIds})&recipe_id=not.is.null&leftover_of=is.null&day=gte.${todayIso}&order=day.asc&limit=10`
+    query: `?select=id,day,meal_type,recipe_id,portions_made&meal_plan_id=in.(${planIds})&recipe_id=not.is.null&leftover_of=is.null&pantry_applied_at=is.null&day=gte.${todayIso}&order=day.asc&limit=10`
   });
   if (!items.length) return null;
 
