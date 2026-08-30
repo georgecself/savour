@@ -18,17 +18,17 @@ const state = {
 
 const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
 
+const ICONS = {
+  edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  remove: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>`
+};
+
 const els = {
   grid: document.getElementById("recipeGrid"),
   search: document.getElementById("recipeSearch"),
   modal: document.getElementById("modal"),
-  modalBackdrop: document.getElementById("modalBackdrop"),
-  status: document.getElementById("status")
+  modalBackdrop: document.getElementById("modalBackdrop")
 };
-
-function setStatus(message) {
-  els.status.textContent = message;
-}
 
 function coverPlaceholderSvg(size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -62,7 +62,7 @@ async function loadRecipesMatching(query) {
     time: r.cooking_time_minutes || 30,
     instructions: r.instructions || "",
     imageUrl: r.image_url || "",
-        isPublic: r.is_public,
+    isPublic: r.is_public,
     ingredients: recipeIngredients
       .filter(ri => ri.recipe_id === r.id)
       .map(ri => ({
@@ -78,7 +78,7 @@ async function loadRecipesMatching(query) {
 
 async function loadAll() {
   try {
-    setStatus("Loading…");
+    setShellStatus(undefined, "Loading…");
     state.ingredients = await supabaseRequest("ingredients", { query: "?select=id,name,category,default_unit&order=name.asc" });
 
     const [mine, library] = await Promise.all([
@@ -90,14 +90,14 @@ async function loadAll() {
 
     if (window.currentUserId === ADMIN_USER_ID) {
       const importLink = document.getElementById("importLink");
-      if (importLink) importLink.style.display = "inline-block";
+      if (importLink) importLink.style.display = "inline-flex";
     }
 
     renderRecipeList();
-    setStatus("Connected to Supabase");
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setStatus("Database connection failed");
+    setShellStatus("error", "Database connection failed");
     els.grid.innerHTML = `<div class="empty-state">Couldn't load recipes. Check the browser console for details.</div>`;
   }
 }
@@ -127,11 +127,23 @@ function renderRecipeList() {
   els.grid.innerHTML = filtered.map(r => {
     const isMine = r.userId === window.currentUserId;
     const cover = r.imageUrl
-      ? `<img class="recipe-card-img" src="${esc(r.imageUrl)}" alt="" onerror="this.parentElement.innerHTML=coverPlaceholderSvg(130)">`
-      : `<div class="recipe-card-img cover-placeholder" style="height:130px;">${coverPlaceholderSvg(36)}</div>`;
+      ? `<div class="recipe-card-img"><img src="${esc(r.imageUrl)}" alt="" onerror="this.parentElement.classList.add('cover-placeholder'); this.parentElement.innerHTML=coverPlaceholderSvg(36);"></div>`
+      : `<div class="recipe-card-img cover-placeholder">${coverPlaceholderSvg(36)}</div>`;
+
+    const menu = isMine ? `
+      <div class="item-menu-wrap" onclick="event.stopPropagation(); event.preventDefault();">
+        <button class="kebab-btn" onclick="toggleCardMenu(event, '${r.id}')" aria-label="Options">⋮</button>
+        <div class="item-menu" id="menu-${r.id}">
+          <button onclick="closeAllCardMenus(); openRecipeModal('${r.id}')">${ICONS.edit} Edit</button>
+          <button class="danger" onclick="closeAllCardMenus(); deleteRecipe('${r.id}')">${ICONS.remove} Delete</button>
+        </div>
+      </div>
+    ` : "";
+
     return `
-    <div class="card recipe-card">
+    <a href="recipe-view.html?id=${r.id}" class="card recipe-card">
       ${cover}
+      ${menu}
       <div class="recipe-card-body">
         ${state.activeTab === "library" ? `<div class="owner-badge">${isMine ? "Yours · published" : "Shared"}</div>` : ""}
         <h3>${esc(r.name)}</h3>
@@ -140,18 +152,35 @@ function renderRecipeList() {
           ${r.ingredients.slice(0, 5).map(i => `<li>${i.quantity ? esc(String(i.quantity)) + " " : ""}${esc(i.unit)} ${esc(i.name)}</li>`).join("")}
           ${r.ingredients.length > 5 ? "<li>…</li>" : ""}
         </ul>
-        <div class="recipe-actions">
-          <a class="btn" href="recipe-view.html?id=${r.id}">View</a>
-          ${isMine
-            ? `<button class="btn" onclick="openRecipeModal('${r.id}')">Edit</button><button class="btn danger" onclick="deleteRecipe('${r.id}')">Delete</button>`
-            : `<button class="btn primary" onclick="cloneRecipe('${r.id}')">＋ Add to my recipes</button>`
-          }
-        </div>
+        ${!isMine ? `<button class="btn primary" style="width:100%;" onclick="event.stopPropagation(); event.preventDefault(); cloneRecipe('${r.id}')">Add to my recipes</button>` : ""}
       </div>
-    </div>
+    </a>
   `;
   }).join("");
 }
+
+function toggleCardMenu(event, id) {
+  event.stopPropagation();
+  event.preventDefault();
+  const menu = document.getElementById(`menu-${id}`);
+  const wasOpen = menu.classList.contains("open");
+  closeAllCardMenus();
+  if (!wasOpen) {
+    menu.classList.add("open");
+    const card = menu.closest(".recipe-card");
+    if (card) card.style.zIndex = "20";
+  }
+}
+
+function closeAllCardMenus() {
+  document.querySelectorAll(".item-menu.open").forEach(m => {
+    m.classList.remove("open");
+    const card = m.closest(".recipe-card");
+    if (card) card.style.zIndex = "";
+  });
+}
+
+document.addEventListener("click", closeAllCardMenus);
 
 async function cloneRecipe(id) {
   const source = state.libraryRecipes.find(r => r.id === id);
@@ -297,8 +326,6 @@ function onIngredientInput(rowKey) {
   const row = document.querySelector(`.ing-row[data-key="${rowKey}"]`);
   if (!row) return;
 
-  // Any manual edit invalidates a previously-selected ingredient — the user
-  // must re-pick from the list, so a mismatched id/name pair can never be saved.
   row.dataset.ingredientId = "";
   row.querySelector(".row-name").classList.remove("invalid");
 
@@ -324,7 +351,7 @@ function showSuggestions(row, matches) {
 
   box.querySelectorAll("div[data-id]").forEach(el => {
     el.addEventListener("mousedown", (e) => {
-      e.preventDefault(); // fires before the input's blur
+      e.preventDefault();
       selectSuggestion(row, el.dataset.id, el.dataset.name, el.dataset.unit);
     });
   });
@@ -359,7 +386,6 @@ function collectAndValidateRows() {
     const unit = row.querySelector(".row-unit").value.trim();
     const ingredientId = row.dataset.ingredientId;
 
-    // Fully empty row — skip silently, it just won't be saved.
     if (!name && !qtyRaw && !unit) return;
 
     if (!ingredientId) {
@@ -392,11 +418,10 @@ async function saveRecipe() {
   const imageUrl = document.getElementById("rImageUrl").value.trim();
   const instructions = document.getElementById("rInstructions").value.trim();
 
-  // Validate every ingredient row BEFORE any Supabase call is made.
   const { valid, rows, errors } = collectAndValidateRows();
   if (!valid) {
     alert("Please fix the following before saving:\n\n" + errors.join("\n"));
-    return; // Nothing has touched the database yet.
+    return;
   }
   if (!rows.length) {
     if (!confirm("This recipe has no ingredients. Save anyway?")) return;
@@ -414,9 +439,6 @@ async function saveRecipe() {
 
     if (state.editingRecipeId) {
       const id = state.editingRecipeId;
-      // Ingredients are already fully validated real IDs at this point, so
-      // this delete+insert pair can only fail on a network/server error —
-      // not on a bad ingredient match, which was the original bug.
       await supabaseRequest("recipes", { method: "PATCH", query: `?id=eq.${id}`, body: recipePayload });
       await supabaseRequest("recipe_ingredients", { method: "DELETE", query: `?recipe_id=eq.${id}`, prefer: "return=minimal" });
       if (rows.length) {
@@ -428,7 +450,6 @@ async function saveRecipe() {
         try {
           await supabaseRequest("recipe_ingredients", { method: "POST", body: rows.map(r => ({ ...r, recipe_id: created.id })) });
         } catch (ingredientError) {
-          // Roll back the orphaned recipe row rather than leaving it stranded.
           await supabaseRequest("recipes", { method: "DELETE", query: `?id=eq.${created.id}`, prefer: "return=minimal" });
           throw ingredientError;
         }
@@ -448,6 +469,6 @@ async function saveRecipe() {
 
 (async function init() {
   const uid = await window.authReady;
-  if (!uid) return; // redirecting to login
+  if (!uid) return;
   await loadAll();
 })();
