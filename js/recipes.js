@@ -150,7 +150,7 @@ function renderRecipeList() {
           ${r.ingredients.slice(0, 5).map(i => `<li>${i.quantity ? esc(String(i.quantity)) + " " : ""}${esc(i.unit)} ${esc(i.name)}</li>`).join("")}
           ${r.ingredients.length > 5 ? "<li>…</li>" : ""}
         </ul>
-        ${!isMine ? `<button class="btn primary" style="width:100%;" onclick="event.stopPropagation(); event.preventDefault(); cloneRecipe('${r.id}')">Add to my recipes</button>` : ""}
+        ${!isMine ? `<button class="btn primary card-cta" style="width:100%;" onclick="event.stopPropagation(); event.preventDefault(); cloneRecipe('${r.id}')">Add to my recipes</button>` : ""}
       </div>
     </a>
   `;
