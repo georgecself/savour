@@ -164,6 +164,22 @@ function getCookSteps() {
   return recipe.instructions.split("\n").map(s => s.trim()).filter(Boolean);
 }
 
+// Re-measures the expanded card's content height. Called after content
+// changes, and again once web fonts finish loading — the first "cook mode"
+// open can happen before Fraunces/Inter have swapped in, and the fallback
+// font measures very slightly shorter, which is what clipped the buttons.
+function remeasureCookBody() {
+  const card = document.getElementById("cookToggleCard");
+  const body = document.getElementById("cookToggleBody");
+  if (card && body && card.classList.contains("expanded")) {
+    body.style.maxHeight = body.scrollHeight + "px";
+  }
+}
+
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(remeasureCookBody);
+}
+
 function toggleCookMode() {
   const card = document.getElementById("cookToggleCard");
   const body = document.getElementById("cookToggleBody");
@@ -198,11 +214,9 @@ function renderCookStep() {
 
   // Re-measure every time the step changes — different steps are different
   // lengths, so the card should breathe with whatever's actually showing.
-  const card = document.getElementById("cookToggleCard");
-  const body = document.getElementById("cookToggleBody");
-  if (card.classList.contains("expanded")) {
-    body.style.maxHeight = body.scrollHeight + "px";
-  }
+  // Wrapped in rAF so the browser has definitely committed layout for the
+  // new content before we read its height.
+  requestAnimationFrame(remeasureCookBody);
 }
 
 function cookStep(delta) {
