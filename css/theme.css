@@ -35,6 +35,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #211D18;
   --surface: #2B2620;
   --surface-2: #342E27;
