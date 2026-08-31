@@ -2,31 +2,34 @@ let recipe = null;
 let checkedIngredients = new Set();
 let cookStepIndex = 0;
 
-function setStatus(message) {
-  document.getElementById("status").textContent = message;
-}
-
 function getRecipeId() {
   return new URLSearchParams(window.location.search).get("id");
+}
+
+function coverPlaceholderSvg(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="13" cy="13" r="12" style="stroke:var(--accent)" stroke-width="1.5"/>
+    <path d="M8 14c0-3 2.2-6 5-6s5 3 5 6-2.2 4-5 4-5-1-5-4Z" style="fill:var(--accent)"/>
+  </svg>`;
 }
 
 async function load() {
   const id = getRecipeId();
   if (!id) {
     document.getElementById("content").innerHTML = `<div class="empty-state">No recipe specified.</div>`;
-    setStatus("Connected to Supabase");
+    setShellStatus("ok", "Connected to Supabase");
     return;
   }
 
   try {
-    setStatus("Loading…");
+    setShellStatus(undefined, "Loading…");
     const rows = await supabaseRequest("recipes", {
-      query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,is_public&id=eq.${id}&limit=1`
+      query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,category,is_public&id=eq.${id}&limit=1`
     });
 
     if (!rows.length) {
       document.getElementById("content").innerHTML = `<div class="empty-state">Recipe not found, or you don't have access to it.</div>`;
-      setStatus("Connected to Supabase");
+      setShellStatus("ok", "Connected to Supabase");
       return;
     }
 
@@ -38,7 +41,7 @@ async function load() {
     recipe = {
       id: r.id, userId: r.user_id, name: r.name, description: r.description || "",
       baseServings: r.servings || 2, time: r.cooking_time_minutes || 0,
-      instructions: r.instructions || "", imageUrl: r.image_url || "", isPublic: r.is_public,
+      instructions: r.instructions || "", imageUrl: r.image_url || "", category: r.category || "", isPublic: r.is_public,
       ingredients: ingredientRows.map(ri => ({
         name: ri.ingredients?.name || "(deleted ingredient)",
         unit: ri.unit || "",
@@ -47,10 +50,10 @@ async function load() {
     };
 
     render();
-    setStatus("Connected to Supabase");
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setStatus("Database connection failed");
+    setShellStatus("error", "Database connection failed");
     document.getElementById("content").innerHTML = `<div class="empty-state">Couldn't load this recipe. Check the browser console for details.</div>`;
   }
 }
@@ -58,23 +61,33 @@ async function load() {
 function render() {
   const isMine = recipe.userId === window.currentUserId;
 
+  const hero = recipe.imageUrl
+    ? `<img class="hero-img" src="${esc(recipe.imageUrl)}" alt="" onerror="this.outerHTML='<div class=\\'hero-placeholder\\'>'+coverPlaceholderSvg(56)+'</div>'">`
+    : `<div class="hero-placeholder">${coverPlaceholderSvg(56)}</div>`;
+
+  const badges = [];
+  if (recipe.category) badges.push(`<span class="rv-badge category">${esc(recipe.category)}</span>`);
+  if (recipe.isPublic) badges.push(`<span class="rv-badge">${isMine ? "Published to library" : "From the shared library"}</span>`);
+
   document.getElementById("content").innerHTML = `
-    ${recipe.imageUrl ? `<img class="hero-img" src="${esc(recipe.imageUrl)}" alt="" onerror="this.style.display='none'">` : ""}
+    ${hero}
 
     <div class="rv-header">
+      ${badges.length ? `<div class="rv-badges">${badges.join("")}</div>` : ""}
       <h1>${esc(recipe.name)}</h1>
       ${recipe.description ? `<p class="rv-description">${esc(recipe.description)}</p>` : ""}
       <div class="rv-meta">
         <span>${recipe.time ? recipe.time + " mins" : "No time set"}</span>
         <span>${recipe.ingredients.length} ingredient${recipe.ingredients.length === 1 ? "" : "s"}</span>
-        ${recipe.isPublic ? `<span class="rv-badge">${isMine ? "Published to library" : "From the shared library"}</span>` : ""}
       </div>
       <div class="rv-actions">
         ${isMine
-          ? `<a class="btn" href="recipes.html">Edit on Recipes page</a>`
-          : `<button class="btn primary" onclick="cloneRecipe()">＋ Add to my recipes</button>`
+          ? `<a class="btn primary" style="border-radius:999px;" href="recipes.html">Edit on Recipes page</a>`
+          : `<button class="btn primary" style="border-radius:999px;" onclick="cloneRecipe()">＋ Add to my recipes</button>`
         }
-        <button class="btn" id="cookModeBtn" onclick="toggleCookMode()">👨‍🍳 Cook mode</button>
+        <button class="icon-btn" id="cookModeBtn" onclick="toggleCookMode()" title="Cook mode" aria-label="Start cook mode">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+        </button>
       </div>
     </div>
 
@@ -94,11 +107,16 @@ function render() {
 
     <div class="cook-mode" id="cookMode">
       <div class="card">
-        <div class="cook-step-count" id="cookStepCount"></div>
+        <div class="cook-mode-top">
+          <div class="cook-step-count" id="cookStepCount"></div>
+          <button class="icon-btn" onclick="toggleCookMode()" title="Exit cook mode" aria-label="Exit cook mode">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+          </button>
+        </div>
         <div class="cook-step-text" id="cookStepText"></div>
         <div class="cook-nav">
-          <button class="btn" id="cookPrevBtn" onclick="cookStep(-1)">← Back</button>
-          <button class="btn" id="cookNextBtn" onclick="cookStep(1)">Next →</button>
+          <button class="btn" id="cookPrevBtn" onclick="cookStep(-1)">Back</button>
+          <button class="btn primary" id="cookNextBtn" onclick="cookStep(1)">Next</button>
         </div>
       </div>
     </div>
@@ -146,7 +164,6 @@ function toggleCookMode() {
   const normalEl = document.getElementById("normalView");
   const isActive = cookEl.classList.toggle("active");
   normalEl.style.display = isActive ? "none" : "grid";
-  document.getElementById("cookModeBtn").textContent = isActive ? "📋 Normal view" : "👨‍🍳 Cook mode";
   if (isActive) { cookStepIndex = 0; renderCookStep(); }
 }
 
@@ -182,7 +199,8 @@ async function cloneRecipe() {
       body: {
         name: recipe.name, description: recipe.description || null, servings: recipe.baseServings,
         cooking_time_minutes: recipe.time || null, instructions: recipe.instructions || null,
-        image_url: recipe.imageUrl || null, user_id: window.currentUserId, is_public: false
+        image_url: recipe.imageUrl || null, category: recipe.category || null, cloned_from: recipe.id,
+        user_id: window.currentUserId, is_public: false
       }
     }))[0];
 
