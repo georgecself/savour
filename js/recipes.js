@@ -117,6 +117,7 @@ function switchTab(tab) {
   document.getElementById("tabMine").classList.toggle("active", tab === "mine");
   document.getElementById("tabLibrary").classList.toggle("active", tab === "library");
   document.getElementById("addAllBtn").style.display = tab === "library" ? "flex" : "none";
+  document.getElementById("createRecipeBtn").style.display = tab === "mine" ? "flex" : "none";
   renderCategoryFilterOptions();
   renderRecipeList();
 }
