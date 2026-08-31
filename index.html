@@ -96,10 +96,16 @@
   @media(max-width:900px){.week-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:650px){.week-grid{grid-template-columns:1fr}.tag-quantity-row{grid-template-columns:1fr}}
 
-  /* Page-local override: pill-shaped buttons, matching the tab-toggle style
-     used for the Recipes library/mine switch. Scoped to this page only so
-     it can be reviewed before rolling out anywhere else. */
-  .btn { border-radius:999px; padding:9px 18px; }
+  /* Toolbar: icon-circle buttons + a segmented pill for week navigation */
+  .toolbar-row { display:flex; align-items:center; gap:10px; }
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+  .icon-btn.danger:hover { background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
+
+  .week-nav-pill { display:flex; align-items:stretch; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .week-nav-pill button { border:0; background:transparent; color:var(--text); padding:9px 18px; cursor:pointer; font-size:14px; font-family:var(--font-body); position:relative; display:flex; align-items:center; }
+  .week-nav-pill button:not(:last-child)::after { content:""; position:absolute; right:0; top:22%; bottom:22%; width:1px; background:var(--line); }
+  .week-nav-pill button:hover { background:var(--surface-2); }
 
   @media print {
     .sidebar, .mobile-topbar, .status-dot-row, .week-toolbar, .add-day-btn, .item-menu-wrap { display:none !important; }
@@ -121,12 +127,22 @@
 <section id="week" class="view active">
   <div class="section-head">
     <h2 id="weekHeading">This Week</h2>
-    <div class="week-toolbar" style="display:flex; gap:8px; align-items:center;">
-      <button class="btn" onclick="navigateWeek(-1)">◀</button>
-      <button class="btn" onclick="jumpToToday()">Today</button>
-      <button class="btn" onclick="navigateWeek(1)">▶</button>
-      <button class="btn" onclick="clearWeek()">Clear week</button>
-      <button class="btn" onclick="downloadWeekAsPdf()">⬇ Download as PDF</button>
+    <div class="week-toolbar toolbar-row">
+      <button class="icon-btn danger" onclick="clearWeek()" title="Clear week" aria-label="Clear week">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>
+      </button>
+      <button class="icon-btn" onclick="downloadWeekAsPdf()" title="Download as PDF" aria-label="Download as PDF">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="M6 10l6 6 6-6"/><path d="M4 20h16"/></svg>
+      </button>
+      <div class="week-nav-pill">
+        <button onclick="navigateWeek(-1)" title="Previous week" aria-label="Previous week">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <button onclick="jumpToToday()">Today</button>
+        <button onclick="navigateWeek(1)" title="Next week" aria-label="Next week">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
     </div>
   </div>
   <div id="weekGrid" class="week-grid"></div>
