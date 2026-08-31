@@ -10,12 +10,18 @@ const state = {
   ingredients: [],   // full global ingredient list, loaded once
   myRecipes: [],
   libraryRecipes: [],
-  addedLibraryIds: new Set(), // library recipe ids cloned this session
   activeTab: "mine",
   editingRecipeId: null,
   rowCounter: 0,
   activeSuggestionRow: null
 };
+
+// Derived, not stored separately — a library recipe counts as "added" if
+// any of your own recipes has cloned_from pointing at it. Since this comes
+// from the database (not session state), it survives page reloads.
+function getAddedLibraryIds() {
+  return new Set(state.myRecipes.map(r => r.clonedFrom).filter(Boolean));
+}
 
 const RECIPE_CATEGORIES = ["Breakfast", "Lunch", "Dinner", "Side", "Soup", "Salad", "Dessert", "Baking", "Snack", "Drink", "Sauce", "Other"];
 
@@ -42,7 +48,7 @@ function coverPlaceholderSvg(size) {
 
 async function loadRecipesMatching(query) {
   const recipes = await supabaseRequest("recipes", {
-    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,category,is_public&${query}&order=name.asc`
+    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,category,cloned_from,is_public&${query}&order=name.asc`
   });
 
   const recipeIds = recipes.map(r => r.id);
@@ -64,6 +70,7 @@ async function loadRecipesMatching(query) {
     instructions: r.instructions || "",
     imageUrl: r.image_url || "",
     category: r.category || "",
+    clonedFrom: r.cloned_from || null,
     isPublic: r.is_public,
     ingredients: recipeIngredients
       .filter(ri => ri.recipe_id === r.id)
@@ -129,6 +136,7 @@ function renderRecipeList() {
   const term = els.search.value.trim().toLowerCase();
   const categoryValue = document.getElementById("categoryFilter").value;
   const source = state.activeTab === "library" ? state.libraryRecipes : state.myRecipes;
+  const addedIds = getAddedLibraryIds();
   const filtered = source.filter(r =>
     r.name.toLowerCase().includes(term) &&
     (!categoryValue || r.category === categoryValue)
@@ -162,7 +170,7 @@ function renderRecipeList() {
     if (state.activeTab === "library") badges.push(`<div class="owner-badge">${isMine ? "Yours · published" : "Shared"}</div>`);
     if (r.category) badges.push(`<div class="category-badge">${esc(r.category)}</div>`);
 
-    const alreadyAdded = state.addedLibraryIds.has(r.id);
+    const alreadyAdded = addedIds.has(r.id);
     const cta = !isMine
       ? (alreadyAdded
           ? `<button class="btn card-cta added" disabled>✓ Added</button>`
@@ -219,7 +227,7 @@ async function cloneRecipeCore(source) {
     body: {
       name: source.name, description: source.description || null, servings: source.servings,
       cooking_time_minutes: source.time, instructions: source.instructions || null,
-      image_url: source.imageUrl || null, category: source.category || null,
+      image_url: source.imageUrl || null, category: source.category || null, cloned_from: source.id,
       user_id: window.currentUserId, is_public: false
     }
   }))[0];
@@ -236,13 +244,12 @@ async function cloneRecipeCore(source) {
   state.myRecipes.push({
     id: created.id, userId: window.currentUserId, name: source.name, description: source.description,
     servings: source.servings, time: source.time, instructions: source.instructions,
-    imageUrl: source.imageUrl, category: source.category, isPublic: false, ingredients: source.ingredients
+    imageUrl: source.imageUrl, category: source.category, clonedFrom: source.id, isPublic: false, ingredients: source.ingredients
   });
-  state.addedLibraryIds.add(source.id);
 }
 
 async function cloneRecipe(id) {
-  if (state.addedLibraryIds.has(id)) return;
+  if (getAddedLibraryIds().has(id)) return;
   const source = state.libraryRecipes.find(r => r.id === id);
   if (!source) return;
 
@@ -258,7 +265,7 @@ async function cloneRecipe(id) {
 }
 
 async function addAllNewRecipes() {
-  const toAdd = state.libraryRecipes.filter(r => r.userId !== window.currentUserId && !state.addedLibraryIds.has(r.id));
+  const toAdd = state.libraryRecipes.filter(r => r.userId !== window.currentUserId && !getAddedLibraryIds().has(r.id));
   if (!toAdd.length) {
     alert("Nothing new to add — your library is already up to date.");
     return;
