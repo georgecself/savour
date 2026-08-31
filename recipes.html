@@ -23,19 +23,20 @@
   .tab-btn svg { display:block; }
 
   .recipe-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-  .recipe-card { position:relative; padding:0; overflow:hidden; text-decoration:none; color:inherit; display:block; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+  .recipe-card { position:relative; padding:0; overflow:hidden; text-decoration:none; color:inherit; display:flex; flex-direction:column; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
   .recipe-card:hover { transform:translateY(-2px); box-shadow:0 10px 22px rgba(20,16,10,.14); }
-  .recipe-card-img { width:100%; height:150px; background:var(--line); overflow:hidden; }
+  .recipe-card-img { width:100%; height:150px; background:var(--line); overflow:hidden; flex-shrink:0; }
   .recipe-card-img img { width:100%; height:100%; object-fit:cover; display:block; }
-  .recipe-card-body { padding:16px 18px 18px; }
+  .recipe-card-body { padding:16px 18px 18px; display:flex; flex-direction:column; flex:1; }
   .recipe-card h3 { margin:0 0 6px; font-size:17px; }
   .recipe-card .meta { color:var(--muted); font-size:13px; margin-bottom:10px; }
   .recipe-card ul { padding-left:18px; color:var(--muted); font-size:13px; margin:0 0 12px; }
+  .card-cta { margin-top:auto; }
   .owner-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-bottom:8px; }
   .empty-state { color:var(--muted); padding:30px; text-align:center; }
 
   .item-menu-wrap { position:absolute; top:10px; right:10px; z-index:2; }
-  .kebab-btn { width:28px; height:28px; border-radius:50%; border:0; background:rgba(255,255,255,.88); color:var(--accent-dark); cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 5px rgba(20,16,10,.18); }
+  .kebab-btn { width:28px; height:28px; border-radius:50%; border:0; background:rgba(255,255,255,.88); color:var(--on-light-chip); cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 5px rgba(20,16,10,.18); }
   .kebab-btn:hover { background:#fff; }
   .item-menu { display:none; position:absolute; top:32px; right:0; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 18px rgba(20,16,10,.18); min-width:150px; padding:5px; z-index:5; }
   .item-menu.open { display:block; }
