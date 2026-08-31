@@ -97,15 +97,25 @@ function render() {
       </div>
     </div>
 
-    <div class="card cook-toggle-card" onclick="toggleCookMode()">
-      <div class="cook-toggle-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+    <div class="card cook-toggle-card" id="cookToggleCard">
+      <div class="cook-toggle-header" onclick="toggleCookMode()">
+        <div class="cook-toggle-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+        </div>
+        <div class="cook-toggle-text">
+          <div class="cook-toggle-title">Cook mode</div>
+          <div class="cook-toggle-sub">Step through the instructions one at a time — handy to have open while you're actually cooking</div>
+        </div>
+        <svg class="cook-toggle-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
       </div>
-      <div class="cook-toggle-text">
-        <div class="cook-toggle-title">Cook mode</div>
-        <div class="cook-toggle-sub">Step through the instructions one at a time — handy to have open while you're actually cooking</div>
+      <div class="cook-toggle-body" id="cookToggleBody">
+        <div class="cook-step-count" id="cookStepCount"></div>
+        <div class="cook-step-text" id="cookStepText"></div>
+        <div class="cook-nav">
+          <button class="btn" id="cookPrevBtn" onclick="cookStep(-1)">Back</button>
+          <button class="btn primary" id="cookNextBtn" onclick="cookStep(1)">Next</button>
+        </div>
       </div>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
     </div>
 
     <div class="rv-columns" id="normalView">
@@ -120,22 +130,6 @@ function render() {
       <div class="card rv-card">
         <h3 style="margin-top:0;">Instructions</h3>
         <div class="instructions">${renderInstructions(recipe.instructions)}</div>
-      </div>
-    </div>
-
-    <div class="cook-mode" id="cookMode">
-      <div class="card">
-        <div class="cook-mode-top">
-          <div class="cook-step-count" id="cookStepCount"></div>
-          <button class="icon-btn" onclick="toggleCookMode()" title="Exit cook mode" aria-label="Exit cook mode">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <div class="cook-step-text" id="cookStepText"></div>
-        <div class="cook-nav">
-          <button class="btn" id="cookPrevBtn" onclick="cookStep(-1)">Back</button>
-          <button class="btn primary" id="cookNextBtn" onclick="cookStep(1)">Next</button>
-        </div>
       </div>
     </div>
   `;
@@ -171,11 +165,21 @@ function getCookSteps() {
 }
 
 function toggleCookMode() {
-  const cookEl = document.getElementById("cookMode");
+  const card = document.getElementById("cookToggleCard");
+  const body = document.getElementById("cookToggleBody");
   const normalEl = document.getElementById("normalView");
-  const isActive = cookEl.classList.toggle("active");
-  normalEl.style.display = isActive ? "none" : "grid";
-  if (isActive) { cookStepIndex = 0; renderCookStep(); }
+  const isExpanding = !card.classList.contains("expanded");
+
+  if (isExpanding) {
+    card.classList.add("expanded");
+    normalEl.style.display = "none";
+    cookStepIndex = 0;
+    renderCookStep(); // sets content, then measures + expands to fit it
+  } else {
+    card.classList.remove("expanded");
+    body.style.maxHeight = "0px";
+    normalEl.style.display = "grid";
+  }
 }
 
 function renderCookStep() {
@@ -185,12 +189,20 @@ function renderCookStep() {
     document.getElementById("cookStepCount").textContent = "";
     document.getElementById("cookPrevBtn").disabled = true;
     document.getElementById("cookNextBtn").disabled = true;
-    return;
+  } else {
+    document.getElementById("cookStepCount").textContent = `Step ${cookStepIndex + 1} of ${steps.length}`;
+    document.getElementById("cookStepText").textContent = steps[cookStepIndex];
+    document.getElementById("cookPrevBtn").disabled = cookStepIndex === 0;
+    document.getElementById("cookNextBtn").disabled = cookStepIndex === steps.length - 1;
   }
-  document.getElementById("cookStepCount").textContent = `Step ${cookStepIndex + 1} of ${steps.length}`;
-  document.getElementById("cookStepText").textContent = steps[cookStepIndex];
-  document.getElementById("cookPrevBtn").disabled = cookStepIndex === 0;
-  document.getElementById("cookNextBtn").disabled = cookStepIndex === steps.length - 1;
+
+  // Re-measure every time the step changes — different steps are different
+  // lengths, so the card should breathe with whatever's actually showing.
+  const card = document.getElementById("cookToggleCard");
+  const body = document.getElementById("cookToggleBody");
+  if (card.classList.contains("expanded")) {
+    body.style.maxHeight = body.scrollHeight + "px";
+  }
 }
 
 function cookStep(delta) {
