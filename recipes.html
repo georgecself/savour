@@ -33,6 +33,10 @@
   .recipe-card ul { padding-left:18px; color:var(--muted); font-size:13px; margin:0 0 12px; }
   .card-cta { margin-top:auto; }
   .owner-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-bottom:8px; }
+  .category-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--gold-dark); background:var(--gold-soft); padding:2px 7px; border-radius:999px; margin-bottom:8px; }
+  .badge-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .badge-row > * { margin-bottom:0 !important; }
+  .card-cta.added { background:var(--accent-soft); border-color:var(--accent-soft); color:var(--accent-dark); cursor:default; }
   .empty-state { color:var(--muted); padding:30px; text-align:center; }
 
   .item-menu-wrap { position:absolute; top:10px; right:10px; z-index:2; }
@@ -90,7 +94,8 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>
       Bulk import
     </a>
-    <button class="btn primary" onclick="openRecipeModal()">＋ Add recipe</button>
+    <button class="btn" id="addAllBtn" onclick="addAllNewRecipes()" style="display:none;">Add all new recipes</button>
+    <button class="btn primary" onclick="openRecipeModal()">＋ Create new recipe</button>
   </div>
 </div>
 <div class="tab-row">
@@ -102,6 +107,9 @@
 </div>
 <div class="recipe-toolbar">
   <input id="recipeSearch" placeholder="Search recipes…" oninput="renderRecipeList()">
+  <select id="categoryFilter" onchange="renderRecipeList()" style="max-width:180px;">
+    <option value="">All categories</option>
+  </select>
 </div>
 <div id="recipeGrid" class="recipe-grid"></div>
 
