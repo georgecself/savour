@@ -561,4 +561,9 @@ async function saveRecipe() {
   const uid = await window.authReady;
   if (!uid) return;
   await loadAll();
+
+  const editId = new URLSearchParams(window.location.search).get("edit");
+  if (editId && state.myRecipes.some(r => r.id === editId)) {
+    openRecipeModal(editId);
+  }
 })();

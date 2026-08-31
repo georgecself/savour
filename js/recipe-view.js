@@ -1,5 +1,4 @@
 let recipe = null;
-let checkedIngredients = new Set();
 let cookStepIndex = 0;
 
 function getRecipeId() {
@@ -42,12 +41,20 @@ async function load() {
       id: r.id, userId: r.user_id, name: r.name, description: r.description || "",
       baseServings: r.servings || 2, time: r.cooking_time_minutes || 0,
       instructions: r.instructions || "", imageUrl: r.image_url || "", category: r.category || "", isPublic: r.is_public,
+      alreadyAdded: false,
       ingredients: ingredientRows.map(ri => ({
         name: ri.ingredients?.name || "(deleted ingredient)",
         unit: ri.unit || "",
         quantity: ri.quantity
       }))
     };
+
+    if (recipe.userId !== window.currentUserId) {
+      const cloneCheck = await supabaseRequest("recipes", {
+        query: `?select=id&cloned_from=eq.${recipe.id}&user_id=eq.${window.currentUserId}&limit=1`
+      });
+      recipe.alreadyAdded = cloneCheck.length > 0;
+    }
 
     render();
     setShellStatus("ok", "Connected to Supabase");
@@ -82,17 +89,28 @@ function render() {
       </div>
       <div class="rv-actions">
         ${isMine
-          ? `<a class="btn primary" style="border-radius:999px;" href="recipes.html">Edit on Recipes page</a>`
-          : `<button class="btn primary" style="border-radius:999px;" onclick="cloneRecipe()">＋ Add to my recipes</button>`
+          ? `<a class="btn primary" style="border-radius:999px;" href="recipes.html?edit=${recipe.id}">Edit recipe</a>`
+          : (recipe.alreadyAdded
+              ? `<button class="btn" style="border-radius:999px;" disabled>✓ Already in your recipes</button>`
+              : `<button class="btn primary" style="border-radius:999px;" onclick="cloneRecipe()">＋ Add to my recipes</button>`)
         }
-        <button class="icon-btn" id="cookModeBtn" onclick="toggleCookMode()" title="Cook mode" aria-label="Start cook mode">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
-        </button>
       </div>
+    </div>
+
+    <div class="card cook-toggle-card" onclick="toggleCookMode()">
+      <div class="cook-toggle-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+      </div>
+      <div class="cook-toggle-text">
+        <div class="cook-toggle-title">Cook mode</div>
+        <div class="cook-toggle-sub">Step through the instructions one at a time — handy to have open while you're actually cooking</div>
+      </div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
     </div>
 
     <div class="rv-columns" id="normalView">
       <div class="card rv-card">
+        <h3 style="margin-top:0;">Ingredients</h3>
         <div class="servings-row">
           <label style="font-size:12px; font-weight:600;">Servings</label>
           <input id="servingsInput" type="number" min="1" value="${recipe.baseServings}" oninput="renderIngredients()">
@@ -135,22 +153,15 @@ function renderIngredients() {
   const servings = Number(document.getElementById("servingsInput").value) || recipe.baseServings;
   const multiplier = servings / recipe.baseServings;
 
-  document.getElementById("ingList").innerHTML = recipe.ingredients.map((ing, i) => {
+  document.getElementById("ingList").innerHTML = recipe.ingredients.map(ing => {
     const scaled = ing.quantity !== null ? Math.round(ing.quantity * multiplier * 100) / 100 : null;
-    const key = `${i}`;
     return `
-      <li class="${checkedIngredients.has(key) ? "checked" : ""}">
-        <input type="checkbox" ${checkedIngredients.has(key) ? "checked" : ""} onchange="toggleIngredient('${key}', this)">
+      <li>
         <span class="ing-qty">${scaled !== null ? esc(String(scaled)) + " " + esc(ing.unit) : ""}</span>
         <span>${esc(ing.name)}</span>
       </li>
     `;
   }).join("") || `<li class="empty-state">No ingredients listed.</li>`;
-}
-
-function toggleIngredient(key, checkbox) {
-  if (checkbox.checked) checkedIngredients.add(key); else checkedIngredients.delete(key);
-  checkbox.closest("li").classList.toggle("checked", checkbox.checked);
 }
 
 // ---------- Cook mode ----------
@@ -217,7 +228,8 @@ async function cloneRecipe() {
     }
 
     alert(`"${recipe.name}" is now in your own recipes.`);
-    window.location.href = "recipes.html";
+    recipe.alreadyAdded = true;
+    render();
   } catch (error) {
     console.error(error);
     alert("Couldn't add that recipe. Check the browser console for details.");
