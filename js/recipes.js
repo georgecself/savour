@@ -10,11 +10,14 @@ const state = {
   ingredients: [],   // full global ingredient list, loaded once
   myRecipes: [],
   libraryRecipes: [],
+  addedLibraryIds: new Set(), // library recipe ids cloned this session
   activeTab: "mine",
   editingRecipeId: null,
   rowCounter: 0,
   activeSuggestionRow: null
 };
+
+const RECIPE_CATEGORIES = ["Breakfast", "Lunch", "Dinner", "Side", "Soup", "Salad", "Dessert", "Baking", "Snack", "Drink", "Sauce", "Other"];
 
 const ICONS = {
   edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
@@ -39,7 +42,7 @@ function coverPlaceholderSvg(size) {
 
 async function loadRecipesMatching(query) {
   const recipes = await supabaseRequest("recipes", {
-    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,is_public&${query}&order=name.asc`
+    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,category,is_public&${query}&order=name.asc`
   });
 
   const recipeIds = recipes.map(r => r.id);
@@ -60,6 +63,7 @@ async function loadRecipesMatching(query) {
     time: r.cooking_time_minutes || 30,
     instructions: r.instructions || "",
     imageUrl: r.image_url || "",
+    category: r.category || "",
     isPublic: r.is_public,
     ingredients: recipeIngredients
       .filter(ri => ri.recipe_id === r.id)
@@ -91,6 +95,7 @@ async function loadAll() {
       if (importLink) importLink.style.display = "inline-flex";
     }
 
+    renderCategoryFilterOptions();
     renderRecipeList();
     setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
@@ -104,20 +109,35 @@ function switchTab(tab) {
   state.activeTab = tab;
   document.getElementById("tabMine").classList.toggle("active", tab === "mine");
   document.getElementById("tabLibrary").classList.toggle("active", tab === "library");
+  document.getElementById("addAllBtn").style.display = tab === "library" ? "inline-flex" : "none";
+  renderCategoryFilterOptions();
   renderRecipeList();
+}
+
+function renderCategoryFilterOptions() {
+  const source = state.activeTab === "library" ? state.libraryRecipes : state.myRecipes;
+  const present = [...new Set(source.map(r => r.category).filter(Boolean))].sort();
+  const select = document.getElementById("categoryFilter");
+  const current = select.value;
+  select.innerHTML = `<option value="">All categories</option>` + present.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  if (present.includes(current)) select.value = current;
 }
 
 // ---------- Recipe list ----------
 
 function renderRecipeList() {
   const term = els.search.value.trim().toLowerCase();
+  const categoryValue = document.getElementById("categoryFilter").value;
   const source = state.activeTab === "library" ? state.libraryRecipes : state.myRecipes;
-  const filtered = source.filter(r => r.name.toLowerCase().includes(term));
+  const filtered = source.filter(r =>
+    r.name.toLowerCase().includes(term) &&
+    (!categoryValue || r.category === categoryValue)
+  );
 
   if (!filtered.length) {
     const emptyMsg = state.activeTab === "library"
-      ? (term ? "No library recipes match your search." : "No shared recipes yet.")
-      : (term ? "No recipes match your search." : "No recipes yet — add your first one.");
+      ? (term || categoryValue ? "No library recipes match." : "No shared recipes yet.")
+      : (term || categoryValue ? "No recipes match." : "No recipes yet — create your first one.");
     els.grid.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
     return;
   }
@@ -138,19 +158,30 @@ function renderRecipeList() {
       </div>
     ` : "";
 
+    const badges = [];
+    if (state.activeTab === "library") badges.push(`<div class="owner-badge">${isMine ? "Yours · published" : "Shared"}</div>`);
+    if (r.category) badges.push(`<div class="category-badge">${esc(r.category)}</div>`);
+
+    const alreadyAdded = state.addedLibraryIds.has(r.id);
+    const cta = !isMine
+      ? (alreadyAdded
+          ? `<button class="btn card-cta added" disabled>✓ Added</button>`
+          : `<button class="btn primary card-cta" onclick="event.stopPropagation(); event.preventDefault(); cloneRecipe('${r.id}')">Add to my recipes</button>`)
+      : "";
+
     return `
     <a href="recipe-view.html?id=${r.id}" class="card recipe-card">
       ${cover}
       ${menu}
       <div class="recipe-card-body">
-        ${state.activeTab === "library" ? `<div class="owner-badge">${isMine ? "Yours · published" : "Shared"}</div>` : ""}
+        ${badges.length ? `<div class="badge-row" style="margin-bottom:8px;">${badges.join("")}</div>` : ""}
         <h3>${esc(r.name)}</h3>
         <div class="meta">Serves ${r.servings} · ${r.time} mins · ${r.ingredients.length} ingredient${r.ingredients.length === 1 ? "" : "s"}</div>
         <ul>
           ${r.ingredients.slice(0, 5).map(i => `<li>${i.quantity ? esc(String(i.quantity)) + " " : ""}${esc(i.unit)} ${esc(i.name)}</li>`).join("")}
           ${r.ingredients.length > 5 ? "<li>…</li>" : ""}
         </ul>
-        ${!isMine ? `<button class="btn primary card-cta" style="width:100%;" onclick="event.stopPropagation(); event.preventDefault(); cloneRecipe('${r.id}')">Add to my recipes</button>` : ""}
+        ${cta}
       </div>
     </a>
   `;
@@ -180,36 +211,81 @@ function closeAllCardMenus() {
 
 document.addEventListener("click", closeAllCardMenus);
 
+// Does the actual clone + local state update. No UI concerns (confirms,
+// alerts, re-renders) here — callers decide how to surface progress.
+async function cloneRecipeCore(source) {
+  const created = (await supabaseRequest("recipes", {
+    method: "POST",
+    body: {
+      name: source.name, description: source.description || null, servings: source.servings,
+      cooking_time_minutes: source.time, instructions: source.instructions || null,
+      image_url: source.imageUrl || null, category: source.category || null,
+      user_id: window.currentUserId, is_public: false
+    }
+  }))[0];
+
+  if (source.ingredients.length) {
+    const rows = source.ingredients.map((ing, i) => ({
+      recipe_id: created.id, ingredient_id: ing.ingredientId,
+      quantity: ing.quantity, unit: ing.unit || null, notes: ing.notes || null, sort_order: i
+    }));
+    await supabaseRequest("recipe_ingredients", { method: "POST", body: rows });
+  }
+
+  // Reflect locally so switching to "My Recipes" shows it without a reload.
+  state.myRecipes.push({
+    id: created.id, userId: window.currentUserId, name: source.name, description: source.description,
+    servings: source.servings, time: source.time, instructions: source.instructions,
+    imageUrl: source.imageUrl, category: source.category, isPublic: false, ingredients: source.ingredients
+  });
+  state.addedLibraryIds.add(source.id);
+}
+
 async function cloneRecipe(id) {
+  if (state.addedLibraryIds.has(id)) return;
   const source = state.libraryRecipes.find(r => r.id === id);
   if (!source) return;
-  if (!confirm(`Add "${source.name}" to your own recipes? You'll get your own editable copy.`)) return;
 
   try {
-    const created = (await supabaseRequest("recipes", {
-      method: "POST",
-      body: {
-        name: source.name, description: source.description || null, servings: source.servings,
-        cooking_time_minutes: source.time, instructions: source.instructions || null,
-        image_url: source.imageUrl || null, user_id: window.currentUserId, is_public: false
-      }
-    }))[0];
-
-    if (source.ingredients.length) {
-      const rows = source.ingredients.map((ing, i) => ({
-        recipe_id: created.id, ingredient_id: ing.ingredientId,
-        quantity: ing.quantity, unit: ing.unit || null, notes: ing.notes || null, sort_order: i
-      }));
-      await supabaseRequest("recipe_ingredients", { method: "POST", body: rows });
-    }
-
-    await loadAll();
-    switchTab("mine");
-    alert(`"${source.name}" is now in your own recipes — feel free to edit your copy.`);
+    await cloneRecipeCore(source);
+    // Stay on the library tab so browsing/adding can continue uninterrupted.
+    renderCategoryFilterOptions();
+    renderRecipeList();
   } catch (error) {
     console.error(error);
     alert("Couldn't add that recipe. Check the browser console for details.");
   }
+}
+
+async function addAllNewRecipes() {
+  const toAdd = state.libraryRecipes.filter(r => r.userId !== window.currentUserId && !state.addedLibraryIds.has(r.id));
+  if (!toAdd.length) {
+    alert("Nothing new to add — your library is already up to date.");
+    return;
+  }
+  if (!confirm(`Add all ${toAdd.length} new recipe${toAdd.length === 1 ? "" : "s"} to your own recipes?`)) return;
+
+  const btn = document.getElementById("addAllBtn");
+  const originalText = btn.textContent;
+  btn.disabled = true;
+
+  let done = 0, failed = 0;
+  for (const recipe of toAdd) {
+    btn.textContent = `Adding ${done + failed + 1} of ${toAdd.length}…`;
+    try {
+      await cloneRecipeCore(recipe);
+      done++;
+    } catch (error) {
+      console.error(error);
+      failed++;
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = originalText;
+  renderCategoryFilterOptions();
+  renderRecipeList();
+  alert(`Added ${done} recipe${done === 1 ? "" : "s"}.${failed ? ` ${failed} failed — check the browser console.` : ""}`);
 }
 
 async function deleteRecipe(id) {
@@ -245,10 +321,17 @@ function openRecipeModal(id = null) {
         <input id="rImageUrl" value="${recipe ? esc(recipe.imageUrl) : ""}" placeholder="Optional — link to an image already online">
       </div>
       <div class="field">
+        <label>Category</label>
+        <select id="rCategory">
+          <option value="">No category</option>
+          ${RECIPE_CATEGORIES.map(c => `<option value="${c}" ${recipe && recipe.category === c ? "selected" : ""}>${c}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
         <label>Servings</label>
         <input id="rServings" type="number" min="1" value="${recipe ? recipe.servings : 2}">
       </div>
-      <div class="field">
+      <div class="field full">
         <label>Cooking time (minutes)</label>
         <input id="rTime" type="number" min="1" value="${recipe ? recipe.time : 30}">
       </div>
@@ -414,6 +497,7 @@ async function saveRecipe() {
   const time = Number(document.getElementById("rTime").value) || 0;
   const description = document.getElementById("rDescription").value.trim();
   const imageUrl = document.getElementById("rImageUrl").value.trim();
+  const category = document.getElementById("rCategory").value;
   const instructions = document.getElementById("rInstructions").value.trim();
 
   const { valid, rows, errors } = collectAndValidateRows();
@@ -432,7 +516,7 @@ async function saveRecipe() {
   try {
     const recipePayload = {
       name, description: description || null, servings,
-      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null
+      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null, category: category || null
     };
 
     if (state.editingRecipeId) {
