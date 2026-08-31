@@ -96,6 +96,11 @@
   @media(max-width:900px){.week-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:650px){.week-grid{grid-template-columns:1fr}.tag-quantity-row{grid-template-columns:1fr}}
 
+  /* Page-local override: pill-shaped buttons, matching the tab-toggle style
+     used for the Recipes library/mine switch. Scoped to this page only so
+     it can be reviewed before rolling out anywhere else. */
+  .btn { border-radius:999px; padding:9px 18px; }
+
   @media print {
     .sidebar, .mobile-topbar, .status-dot-row, .week-toolbar, .add-day-btn, .item-menu-wrap { display:none !important; }
     body { background:#fff !important; }
