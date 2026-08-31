@@ -17,10 +17,18 @@
 <style>
   .recipe-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
   .recipe-toolbar input { flex:1; max-width:320px; }
-  .tab-row { display:flex; gap:8px; margin-bottom:18px; }
-  .tab-btn { display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:999px; padding:8px 16px; cursor:pointer; font-size:13px; }
-  .tab-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
-  .tab-btn svg { display:block; }
+
+  .toolbar-row { display:flex; align-items:center; gap:10px; }
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; text-decoration:none; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+
+  .action-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+  .recipe-tab-pill { display:flex; align-items:stretch; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .recipe-tab-pill button { border:0; background:transparent; color:var(--text); padding:9px 18px; cursor:pointer; font-size:13px; font-family:var(--font-body); position:relative; display:flex; align-items:center; gap:6px; }
+  .recipe-tab-pill button:not(:last-child)::after { content:""; position:absolute; right:0; top:22%; bottom:22%; width:1px; background:var(--line); }
+  .recipe-tab-pill button:hover { background:var(--surface-2); }
+  .recipe-tab-pill button.active { background:var(--accent-soft); color:var(--accent-dark); font-weight:600; }
+  .recipe-tab-pill svg { display:block; }
 
   .recipe-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   .recipe-card { position:relative; padding:0; overflow:hidden; text-decoration:none; color:inherit; display:flex; flex-direction:column; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
@@ -89,21 +97,24 @@
 
 <div class="section-head">
   <h2>Recipes</h2>
-  <div style="display:flex; gap:8px;">
-    <a class="btn" href="recipes-import.html" id="importLink" style="display:none;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>
-      Bulk import
-    </a>
-    <button class="btn" id="addAllBtn" onclick="addAllNewRecipes()" style="display:none;">Add all new recipes</button>
-    <button class="btn primary" onclick="openRecipeModal()">＋ Create new recipe</button>
-  </div>
+  <button class="btn primary" style="border-radius:999px;" onclick="openRecipeModal()">＋ Create new recipe</button>
 </div>
-<div class="tab-row">
-  <button class="tab-btn active" id="tabMine" onclick="switchTab('mine')">My Recipes</button>
-  <button class="tab-btn" id="tabLibrary" onclick="switchTab('library')">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c2-1 5-1 7 0v14c-2-1-5-1-7 0V5Z"/><path d="M21 5c-2-1-5-1-7 0v14c2-1 5-1 7 0V5Z"/></svg>
-    Library
-  </button>
+<div class="action-row">
+  <div class="toolbar-row">
+    <a class="icon-btn" href="recipes-import.html" id="importLink" style="display:none;" title="Bulk import" aria-label="Bulk import">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>
+    </a>
+    <button class="icon-btn" id="addAllBtn" onclick="addAllNewRecipes()" style="display:none;" title="Add all new recipes" aria-label="Add all new recipes">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="10" height="10" rx="1.5"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+    </button>
+  </div>
+  <div class="recipe-tab-pill">
+    <button class="active" id="tabMine" onclick="switchTab('mine')">My Recipes</button>
+    <button id="tabLibrary" onclick="switchTab('library')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c2-1 5-1 7 0v14c-2-1-5-1-7 0V5Z"/><path d="M21 5c-2-1-5-1-7 0v14c2-1 5-1 7 0V5Z"/></svg>
+      Library
+    </button>
+  </div>
 </div>
 <div class="recipe-toolbar">
   <input id="recipeSearch" placeholder="Search recipes…" oninput="renderRecipeList()">
