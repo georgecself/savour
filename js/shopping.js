@@ -75,7 +75,7 @@ async function loadShoppingList() {
 
     const mealPlanId = plans[0].id;
     const items = await supabaseRequest("meal_plan_items", {
-      query: `?select=day,meal_type,recipe_id,food_id,quantity,portions_made,leftover_of&meal_plan_id=eq.${mealPlanId}`
+      query: `?select=day,meal_type,recipe_id,food_id,quantity,portions_made,leftover_of,pantry_applied_at&meal_plan_id=eq.${mealPlanId}`
     });
 
     if (!items.length) {
@@ -85,9 +85,12 @@ async function loadShoppingList() {
     }
 
     // Leftover entries contributed nothing new — their ingredients were
-    // already counted when the original batch was cooked.
-    const recipeItems = items.filter(i => i.recipe_id && !i.leftover_of);
-    const foodItems = items.filter(i => i.food_id);
+    // already counted when the original batch was cooked. Items already
+    // marked as cooked/eaten are also excluded here: once you've made
+    // something, its ingredients are resolved one way or another, so they
+    // shouldn't keep showing up as still needed.
+    const recipeItems = items.filter(i => i.recipe_id && !i.leftover_of && !i.pantry_applied_at);
+    const foodItems = items.filter(i => i.food_id && !i.pantry_applied_at);
 
     const [ingredientRows, foodRows, pantryItems, cheapestPrices] = await Promise.all([
       loadIngredientContributions(recipeItems),
