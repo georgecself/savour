@@ -48,7 +48,7 @@ function coverPlaceholderSvg(size) {
 
 async function loadRecipesMatching(query) {
   const recipes = await supabaseRequest("recipes", {
-    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,category,cloned_from,is_public&${query}&order=name.asc`
+    query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,source_url,category,cloned_from,is_public&${query}&order=name.asc`
   });
 
   const recipeIds = recipes.map(r => r.id);
@@ -69,6 +69,7 @@ async function loadRecipesMatching(query) {
     time: r.cooking_time_minutes || 30,
     instructions: r.instructions || "",
     imageUrl: r.image_url || "",
+    sourceUrl: r.source_url || "",
     category: r.category || "",
     clonedFrom: r.cloned_from || null,
     isPublic: r.is_public,
@@ -228,7 +229,7 @@ async function cloneRecipeCore(source) {
     body: {
       name: source.name, description: source.description || null, servings: source.servings,
       cooking_time_minutes: source.time, instructions: source.instructions || null,
-      image_url: source.imageUrl || null, category: source.category || null, cloned_from: source.id,
+      image_url: source.imageUrl || null, source_url: source.sourceUrl || null, category: source.category || null, cloned_from: source.id,
       user_id: window.currentUserId, is_public: false
     }
   }))[0];
@@ -327,6 +328,10 @@ function openRecipeModal(id = null) {
       <div class="field full">
         <label>Photo URL</label>
         <input id="rImageUrl" value="${recipe ? esc(recipe.imageUrl) : ""}" placeholder="Optional — link to an image already online">
+      </div>
+      <div class="field full">
+        <label>Source link</label>
+        <input id="rSourceUrl" value="${recipe ? esc(recipe.sourceUrl) : ""}" placeholder="Optional — e.g. a link to the original BBC Good Food recipe">
       </div>
       <div class="field">
         <label>Category</label>
@@ -505,6 +510,7 @@ async function saveRecipe() {
   const time = Number(document.getElementById("rTime").value) || 0;
   const description = document.getElementById("rDescription").value.trim();
   const imageUrl = document.getElementById("rImageUrl").value.trim();
+  const sourceUrl = document.getElementById("rSourceUrl").value.trim();
   const category = document.getElementById("rCategory").value;
   const instructions = document.getElementById("rInstructions").value.trim();
 
@@ -524,7 +530,7 @@ async function saveRecipe() {
   try {
     const recipePayload = {
       name, description: description || null, servings,
-      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null, category: category || null
+      cooking_time_minutes: time, instructions: instructions || null, image_url: imageUrl || null, source_url: sourceUrl || null, category: category || null
     };
 
     if (state.editingRecipeId) {

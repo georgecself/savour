@@ -23,7 +23,7 @@ async function load() {
   try {
     setShellStatus(undefined, "Loading…");
     const rows = await supabaseRequest("recipes", {
-      query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,category,is_public&id=eq.${id}&limit=1`
+      query: `?select=id,user_id,name,description,servings,cooking_time_minutes,instructions,image_url,source_url,category,is_public&id=eq.${id}&limit=1`
     });
 
     if (!rows.length) {
@@ -40,7 +40,7 @@ async function load() {
     recipe = {
       id: r.id, userId: r.user_id, name: r.name, description: r.description || "",
       baseServings: r.servings || 2, time: r.cooking_time_minutes || 0,
-      instructions: r.instructions || "", imageUrl: r.image_url || "", category: r.category || "", isPublic: r.is_public,
+      instructions: r.instructions || "", imageUrl: r.image_url || "", sourceUrl: r.source_url || "", category: r.category || "", isPublic: r.is_public,
       alreadyAdded: false,
       ingredients: ingredientRows.map(ri => ({
         name: ri.ingredients?.name || "(deleted ingredient)",
@@ -94,6 +94,8 @@ function render() {
               ? `<button class="btn" style="border-radius:999px;" disabled>✓ Already in your recipes</button>`
               : `<button class="btn primary" style="border-radius:999px;" onclick="cloneRecipe()">＋ Add to my recipes</button>`)
         }
+        ${isMine ? `<a class="btn" style="border-radius:999px;" href="index.html?addRecipe=${recipe.id}">Add to meal planner</a>` : ""}
+        ${recipe.sourceUrl ? `<a class="btn" style="border-radius:999px;" href="${esc(recipe.sourceUrl)}" target="_blank" rel="noopener">View original recipe ↗</a>` : ""}
       </div>
     </div>
 
@@ -236,7 +238,7 @@ async function cloneRecipe() {
       body: {
         name: recipe.name, description: recipe.description || null, servings: recipe.baseServings,
         cooking_time_minutes: recipe.time || null, instructions: recipe.instructions || null,
-        image_url: recipe.imageUrl || null, category: recipe.category || null, cloned_from: recipe.id,
+        image_url: recipe.imageUrl || null, source_url: recipe.sourceUrl || null, category: recipe.category || null, cloned_from: recipe.id,
         user_id: window.currentUserId, is_public: false
       }
     }))[0];
