@@ -6,9 +6,12 @@ const state = {
   priceHistory: [] // logged product_prices for the selected item
 };
 
-function setStatus(message) {
-  document.getElementById("status").textContent = message;
-}
+const VERDICT_ICONS = {
+  good: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>`,
+  typical: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>`,
+  bad: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>`,
+  unknown: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.4v.3"/><path d="M12 17h.01"/></svg>`
+};
 
 // ---------- Loading ----------
 
@@ -89,11 +92,11 @@ function computeGuidePrice() {
 }
 
 function getVerdict(enteredUnitPrice, guide) {
-  if (!guide) return { key: "unknown", emoji: "❔", label: "No data to compare yet", detail: "This will become the first reference price for this item." };
+  if (!guide) return { key: "unknown", label: "No data to compare yet", detail: "This will become the first reference price for this item." };
   const ratio = enteredUnitPrice / guide.avg;
-  if (ratio <= 0.85) return { key: "good", emoji: "🟢", label: "Good deal!", detail: `${Math.round((1 - ratio) * 100)}% below the typical £${guide.avg.toFixed(2)}` };
-  if (ratio >= 1.15) return { key: "bad", emoji: "🔴", label: "Pricier than usual", detail: `${Math.round((ratio - 1) * 100)}% above the typical £${guide.avg.toFixed(2)}` };
-  return { key: "typical", emoji: "🟡", label: "Fairly typical price", detail: `Typical price is around £${guide.avg.toFixed(2)}` };
+  if (ratio <= 0.85) return { key: "good", label: "Good deal!", detail: `${Math.round((1 - ratio) * 100)}% below the typical £${guide.avg.toFixed(2)}` };
+  if (ratio >= 1.15) return { key: "bad", label: "Pricier than usual", detail: `${Math.round((ratio - 1) * 100)}% above the typical £${guide.avg.toFixed(2)}` };
+  return { key: "typical", label: "Fairly typical price", detail: `Typical price is around £${guide.avg.toFixed(2)}` };
 }
 
 // ---------- Rendering ----------
@@ -105,7 +108,7 @@ function renderDetails() {
   document.getElementById("detailsSection").innerHTML = `
     <div class="card section-card">
       <div class="selection-banner">
-        <span>${state.type === "ingredient" ? "🥕" : "🥫"} ${esc(sel.name)}</span>
+        <span>${esc(sel.name)}</span>
         <button onclick="changeSelection()">Change</button>
       </div>
       <div class="guide-note">
@@ -126,7 +129,7 @@ function renderDetails() {
     <div id="verdictBox"></div>
     <div id="recipeSuggestBox"></div>
 
-    <div class="footer-link"><a href="prices.html">📊 See all logged prices</a></div>
+    <div class="footer-link"><a href="prices.html">See all logged prices →</a></div>
   `;
 }
 
@@ -150,7 +153,7 @@ function updateVerdict() {
 
   box.innerHTML = `
     <div class="verdict ${verdict.key}">
-      <div class="verdict-emoji">${verdict.emoji}</div>
+      <div class="verdict-icon">${VERDICT_ICONS[verdict.key]}</div>
       <div class="verdict-label">${esc(verdict.label)}</div>
       <div class="verdict-detail">${esc(verdict.detail)}</div>
       <div class="verdict-detail">£${unitPrice.toFixed(2)} per ${esc(packUnit)}</div>
@@ -161,7 +164,7 @@ function updateVerdict() {
         <input type="checkbox" id="dIsDeal" ${verdict.key === "good" ? "checked" : ""}>
         <label for="dIsDeal">Mark as a deal/promotion</label>
       </div>
-      <button class="btn primary" style="width:100%;" onclick="logThisPrice('${verdict.key}')">Log this price</button>
+      <button class="btn primary" style="width:100%; border-radius:999px;" onclick="logThisPrice('${verdict.key}')">Log this price</button>
     </div>
   `;
 
@@ -194,12 +197,12 @@ async function renderRecipeSuggestions() {
 
     suggestBox.innerHTML = `
       <div class="card section-card recipe-suggest">
-        <h3>🍳 Recipes using this — good time to plan one</h3>
+        <h3>Recipes using this — good time to plan one</h3>
         <ul class="suggest-list">
           ${recipes.map(r => `
             <li>
-              <span>🍳 ${esc(r.name)}<br><span class="suggest-sub">Serves ${r.servings || "?"} · ${r.cooking_time_minutes ? r.cooking_time_minutes + " mins" : ""}</span></span>
-              <a class="btn" href="recipe-view.html?id=${r.id}">View</a>
+              <span>${esc(r.name)}<br><span class="suggest-sub">Serves ${r.servings || "?"} · ${r.cooking_time_minutes ? r.cooking_time_minutes + " mins" : ""}</span></span>
+              <a class="btn" style="border-radius:999px;" href="recipe-view.html?id=${r.id}">View</a>
             </li>
           `).join("")}
         </ul>
@@ -247,12 +250,12 @@ async function logThisPrice(verdictKey) {
   const uid = await window.authReady;
   if (!uid) return; // redirecting to login
   try {
-    setStatus("Loading…");
+    setShellStatus(undefined, "Loading…");
     await loadLookups();
     renderPickOptions();
-    setStatus("Connected to Supabase");
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setStatus("Database connection failed");
+    setShellStatus("error", "Database connection failed");
   }
 })();
