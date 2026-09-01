@@ -1,7 +1,6 @@
 // shopping.js — builds this week's shopping list from meal_plan_items,
 // combining recipe ingredient quantities and food quantities.
 
-const dayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const CHECKED_KEY_PREFIX = "savour_shopping_checked_"; // + week start date
 
 let checkedKeys = new Set();
@@ -18,10 +17,6 @@ function getMondayOf(date) {
 }
 
 let viewedMonday = getMondayOf(new Date());
-
-function setDbStatus(message) {
-  document.getElementById("dbStatus").textContent = message;
-}
 
 function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -62,7 +57,7 @@ function saveCheckedToStorage() {
 
 async function loadShoppingList() {
   try {
-    setDbStatus("Loading…");
+    setShellStatus(undefined, "Loading…");
     currentWeekStart = getWeekStart();
     const weekEnd = getWeekEnd(currentWeekStart);
     checkedKeys = loadCheckedFromStorage(currentWeekStart);
@@ -74,7 +69,7 @@ async function loadShoppingList() {
 
     if (!plans.length) {
       renderEmpty();
-      setDbStatus("Connected to Supabase");
+      setShellStatus("ok", "Connected to Supabase");
       return;
     }
 
@@ -85,7 +80,7 @@ async function loadShoppingList() {
 
     if (!items.length) {
       renderEmpty();
-      setDbStatus("Connected to Supabase");
+      setShellStatus("ok", "Connected to Supabase");
       return;
     }
 
@@ -105,10 +100,10 @@ async function loadShoppingList() {
     applyPricing(buyRows, cheapestPrices);
 
     render(buyRows, coveredRows, reminderRows);
-    setDbStatus("Connected to Supabase");
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setDbStatus("Database connection failed");
+    setShellStatus("error", "Database connection failed");
     document.getElementById("listContainer").innerHTML =
       `<div class="empty-state">Couldn't load the shopping list. Check the browser console for details.</div>`;
   }
@@ -129,15 +124,13 @@ async function loadIngredientContributions(recipeItems) {
 
   const servingsByRecipe = Object.fromEntries(recipes.map(r => [r.id, r.servings || 1]));
 
-  // Group recipe_ingredients by recipe_id for quick lookup.
   const byRecipe = {};
   recipeIngredients.forEach(ri => {
     if (!byRecipe[ri.recipe_id]) byRecipe[ri.recipe_id] = [];
     byRecipe[ri.recipe_id].push(ri);
   });
 
-  // aggregated key = ingredientId::unit
-  const aggregated = {};
+  const aggregated = {}; // key = ingredientId::unit
 
   recipeItems.forEach(mealItem => {
     const baseServings = servingsByRecipe[mealItem.recipe_id] || 1;
@@ -166,7 +159,7 @@ async function loadIngredientContributions(recipeItems) {
     });
   });
 
-  return Object.values(aggregated); // raw — pantry subtraction happens before formatting
+  return Object.values(aggregated);
 }
 
 async function loadFoodContributions(foodItems) {
@@ -180,7 +173,7 @@ async function loadFoodContributions(foodItems) {
   });
   const foodsById = Object.fromEntries(foods.map(f => [f.id, f]));
 
-  const aggregated = {}; // food_id -> qty sum
+  const aggregated = {};
   foodItems.forEach(item => {
     aggregated[item.food_id] = (aggregated[item.food_id] || 0) + (item.quantity || 1);
   });
@@ -199,9 +192,9 @@ async function loadFoodContributions(foodItems) {
 }
 
 function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
-  const pantryIngredientMap = {}; // ingredientId::unit -> qty
-  const pantryFoodMap = {}; // foodId -> qty
-  const trackedIngredientIds = new Set(); // ingredients with ANY pantry entry, any unit
+  const pantryIngredientMap = {};
+  const pantryFoodMap = {};
+  const trackedIngredientIds = new Set();
 
   pantryItems.forEach(p => {
     if (p.ingredient_id) {
@@ -218,11 +211,9 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
   const reminderRows = []; // staples with no pantry tracking — "you should have"
 
   ingredientRowsRaw.forEach(row => {
-    // Staple, and never actually logged in the Pantry — treat as a nudge to
-    // check the cupboard rather than a firm buy-list item.
     if (row.isStaple && !trackedIngredientIds.has(row.ingredientId)) {
       reminderRows.push({
-        icon: "🧂", category: row.category, label: row.label,
+        category: row.category, label: row.label,
         qtyLabel: row.qtySum > 0 ? `needs ${formatQty(row.qtySum)}${row.unit ? " " + row.unit : ""}` : "amount not specified",
         key: `ing:${row.ingredientId}:${row.unit}`
       });
@@ -232,13 +223,11 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
     const key = `${row.ingredientId}::${row.unit}`;
     const owned = pantryIngredientMap[key] || 0;
 
-    // Can only safely subtract when we know the needed amount — an
-    // unspecified-quantity ingredient always stays on the buy list.
     if (row.qtySum > 0 && owned > 0) {
       const remaining = row.qtySum - owned;
       if (remaining <= 0) {
         coveredRows.push({
-          icon: "🍳", category: row.category, label: row.label,
+          category: row.category, label: row.label,
           qtyLabel: `need ${formatQty(row.qtySum)}${row.unit ? " " + row.unit : ""} — have ${formatQty(owned)}${row.unit ? " " + row.unit : ""}`,
           price: null, key: `ing:${row.ingredientId}:${row.unit}`,
           type: "ingredient", refId: row.ingredientId, unit: row.unit, needQty: 0
@@ -246,7 +235,7 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
         return;
       }
       buyRows.push({
-        icon: "🍳", category: row.category, label: row.label,
+        category: row.category, label: row.label,
         qtyLabel: `${formatQty(remaining)}${row.unit ? " " + row.unit : ""}${row.hasUnspecified ? " + more" : ""} (have ${formatQty(owned)} already)`,
         price: null, key: `ing:${row.ingredientId}:${row.unit}`,
         type: "ingredient", refId: row.ingredientId, unit: row.unit, needQty: remaining
@@ -255,7 +244,7 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
     }
 
     buyRows.push({
-      icon: "🍳", category: row.category, label: row.label,
+      category: row.category, label: row.label,
       qtyLabel: row.qtySum > 0
         ? `${formatQty(row.qtySum)}${row.unit ? " " + row.unit : ""}${row.hasUnspecified ? " + more" : ""}`
         : (row.hasUnspecified ? "some (amount not specified)" : ""),
@@ -270,7 +259,7 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
 
     if (owned > 0 && remaining <= 0) {
       coveredRows.push({
-        icon: "🥫", category: row.category, label: row.label,
+        category: row.category, label: row.label,
         qtyLabel: `need ×${formatQty(row.qty)} — have ×${formatQty(owned)}`,
         price: null, key: `food:${row.foodId}`,
         type: "food", refId: row.foodId, unit: null, needQty: 0
@@ -279,7 +268,7 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
     }
 
     buyRows.push({
-      icon: "🥫", category: row.category, label: row.label,
+      category: row.category, label: row.label,
       qtyLabel: `×${formatQty(remaining)}${owned > 0 ? ` (have ×${formatQty(owned)} already)` : ""}`,
       price: row.unitPrice !== null ? row.unitPrice * remaining : null,
       key: `food:${row.foodId}`,
@@ -297,7 +286,6 @@ async function loadCheapestPrices() {
     query: "?select=ingredient_id,food_id,store,brand,pack_unit,unit_price,price&order=unit_price.asc"
   });
 
-  // Since rows are sorted cheapest-first, the first one seen per item wins.
   const cheapestByIngredient = {};
   const cheapestByFood = {};
   rows.forEach(r => {
@@ -314,18 +302,14 @@ function applyPricing(buyRows, { cheapestByIngredient, cheapestByFood }) {
       if (!cheapest) return;
       const storeLabel = cheapest.brand ? `${cheapest.store} (${cheapest.brand})` : cheapest.store;
       if (row.unit && cheapest.pack_unit && row.unit.toLowerCase() === cheapest.pack_unit.toLowerCase() && row.needQty) {
-        // Units line up — safe to compute an actual cost for this row.
         row.price = cheapest.unit_price * row.needQty;
         row.priceSource = `£${cheapest.unit_price.toFixed(2)}/${cheapest.pack_unit} at ${storeLabel}`;
       } else {
-        // Units don't match what the recipe needs — show it, don't total it.
         row.priceHint = `~£${cheapest.unit_price.toFixed(2)}/${cheapest.pack_unit} at ${storeLabel}`;
       }
     } else if (row.type === "food") {
       const cheapest = cheapestByFood[row.refId];
       if (!cheapest) return;
-      // Foods are already unit-counted, so a logged price straightforwardly
-      // replaces (if cheaper than) whatever the Foods page itself has on record.
       const computed = cheapest.unit_price * (row.needQty || 0);
       if (row.price === null || computed < row.price) {
         row.price = computed;
@@ -335,6 +319,8 @@ function applyPricing(buyRows, { cheapestByIngredient, cheapestByFood }) {
     }
   });
 }
+
+// ---------- Rendering ----------
 
 function render(buyRows, coveredRows, reminderRows) {
   lastBuyRows = buyRows;
@@ -348,13 +334,12 @@ function render(buyRows, coveredRows, reminderRows) {
 
   if (!buyRows.length) {
     document.getElementById("listContainer").innerHTML =
-      `<div class="empty-state">Everything planned this week is already covered.  🎉</div>` + renderReminderSection(reminderRows) + renderCoveredSection(coveredRows);
+      `<div class="empty-state">Everything planned this week is already covered.</div>` + renderReminderSection(reminderRows) + renderCoveredSection(coveredRows);
     renderSummary(buyRows, coveredRows, reminderRows);
     document.getElementById("completeShopBar").style.display = "none";
     return;
   }
 
-  // Group buy rows by category
   const categories = {};
   buyRows.forEach(row => {
     if (!categories[row.category]) categories[row.category] = [];
@@ -377,7 +362,7 @@ function render(buyRows, coveredRows, reminderRows) {
             <div class="shop-row ${checkedKeys.has(row.key) ? "checked" : ""}">
               <input type="checkbox" ${checkedKeys.has(row.key) ? "checked" : ""} onchange="toggleChecked('${row.key.replace(/'/g, "\\'")}', this)">
               <div class="shop-label">
-                <span class="shop-icon">${row.icon}</span>${esc(row.label)}
+                ${esc(row.label)}
                 ${row.priceHint ? `<div style="font-size:11px; color:var(--muted);">${esc(row.priceHint)}</div>` : ""}
               </div>
               <div class="shop-qty">${esc(row.qtyLabel)}</div>
@@ -397,12 +382,12 @@ function render(buyRows, coveredRows, reminderRows) {
 function renderReminderSection(reminderRows) {
   if (!reminderRows.length) return "";
   return `
-    <div class="category">
-      <h3>🧂 You should have these — worth checking</h3>
-      <div class="card category-card">
+    <div class="category reminder">
+      <h3>Worth checking — staples you should already have</h3>
+      <div class="card category-card reminder">
         ${reminderRows.map(row => `
           <div class="shop-row">
-            <div class="shop-label"><span class="shop-icon">${row.icon}</span>${esc(row.label)}</div>
+            <div class="shop-label">${esc(row.label)}</div>
             <div class="shop-qty">${esc(row.qtyLabel)}</div>
           </div>
         `).join("")}
@@ -414,12 +399,12 @@ function renderReminderSection(reminderRows) {
 function renderCoveredSection(coveredRows) {
   if (!coveredRows.length) return "";
   return `
-    <div class="category">
+    <div class="category covered">
       <h3>Already covered by pantry</h3>
-      <div class="card category-card">
+      <div class="card category-card covered">
         ${coveredRows.map(row => `
           <div class="shop-row">
-            <div class="shop-label"><span class="shop-icon">${row.icon}</span>${esc(row.label)}</div>
+            <div class="shop-label">${esc(row.label)}</div>
             <div class="shop-qty">${esc(row.qtyLabel)}</div>
           </div>
         `).join("")}
@@ -431,12 +416,19 @@ function renderCoveredSection(coveredRows) {
 function renderSummary(buyRows, coveredRows, reminderRows) {
   const totalCost = buyRows.reduce((sum, r) => sum + (r.price || 0), 0);
   const summary = document.getElementById("summaryBar");
+
+  const stats = [
+    { value: buyRows.length, label: "To buy" },
+    { value: coveredRows.length, label: "Covered by pantry" },
+    { value: reminderRows.length, label: "Worth checking" },
+    { value: totalCost > 0 ? `£${totalCost.toFixed(2)}` : "—", label: "Estimated cost" }
+  ];
+
   summary.innerHTML = `
-    <div class="summary-pill">${buyRows.length} to buy</div>
-    ${coveredRows.length ? `<div class="summary-pill">${coveredRows.length} covered by pantry</div>` : ""}
-    ${reminderRows.length ? `<div class="summary-pill">🧂 ${reminderRows.length} staples to check</div>` : ""}
-    ${totalCost > 0 ? `<div class="summary-pill">Est. £${totalCost.toFixed(2)}</div>` : ""}
-    <div class="summary-note">Only covers items with a logged price on the Prices page (or foods with a price set) — everything else is unpriced for now.</div>
+    <div class="shopping-stats">
+      ${stats.map(s => `<div class="shopping-stat"><span class="shopping-stat-value">${esc(String(s.value))}</span><span class="shopping-stat-label">${esc(s.label)}</span></div>`).join("")}
+    </div>
+    <div class="summary-note">Estimated cost only covers items with a logged price on the Prices page (or foods with a price set) — everything else is unpriced for now.</div>
   `;
 }
 
@@ -478,11 +470,43 @@ function clearChecked() {
   saveCheckedToStorage();
   document.querySelectorAll(".shop-row").forEach(row => {
     row.classList.remove("checked");
-    row.querySelector("input[type=checkbox]").checked = false;
+    const box = row.querySelector("input[type=checkbox]");
+    if (box) box.checked = false;
   });
 }
 
-// ---------- Complete shop — adds ticked items to pantry ----------
+// ---------- Adding items to the pantry ----------
+//
+// This is the one function responsible for "the whole logic of updating the
+// pantry" — everything that touches pantry_items when a shop is completed
+// goes through here, rather than being spread across the modal/confirm flow.
+// Takes a batch: [{ ingredientId, foodId, unit, qty }]. Anything already
+// logged with the same item + unit gets its quantity merged rather than
+// duplicated; anything new gets inserted.
+async function addItemsToPantry(items) {
+  for (const item of items) {
+    if (!item.qty || item.qty <= 0) continue;
+
+    const filters = item.ingredientId
+      ? `ingredient_id=eq.${item.ingredientId}&${item.unit ? `unit=eq.${encodeURIComponent(item.unit)}` : "unit=is.null"}`
+      : `food_id=eq.${item.foodId}`;
+
+    const existing = await supabaseRequest("pantry_items", {
+      query: `?select=id,quantity&${filters}&user_id=eq.${window.currentUserId}&limit=1`
+    });
+
+    if (existing.length) {
+      const newQty = (existing[0].quantity || 0) + item.qty;
+      await supabaseRequest("pantry_items", { method: "PATCH", query: `?id=eq.${existing[0].id}`, body: { quantity: newQty } });
+    } else {
+      const body = { quantity: item.qty, unit: item.unit || null, user_id: window.currentUserId };
+      if (item.ingredientId) body.ingredient_id = item.ingredientId; else body.food_id = item.foodId;
+      await supabaseRequest("pantry_items", { method: "POST", body });
+    }
+  }
+}
+
+// ---------- Complete shop modal — reviews quantities, then calls addItemsToPantry ----------
 
 let pendingShopRows = null;
 
@@ -500,7 +524,7 @@ function openCompleteShopModal() {
     <div>
       ${pendingShopRows.map((r, i) => `
         <div class="mark-row">
-          <div class="mark-row-name">${r.icon} ${esc(r.label)}</div>
+          <div class="mark-row-name">${esc(r.label)}</div>
           <input type="number" step="any" min="0" id="shopQty_${i}" value="${r.needQty !== null ? formatQty(r.needQty) : ""}" placeholder="0">
           <div class="mark-row-unit">${esc(r.unit || "")}</div>
         </div>
@@ -514,36 +538,21 @@ function openCompleteShopModal() {
   document.getElementById("modalBackdrop").classList.add("open");
 }
 
-async function addToPantry({ ingredientId, foodId, unit }, qty) {
-  if (!qty || qty <= 0) return;
-
-  const filters = ingredientId
-    ? `ingredient_id=eq.${ingredientId}&${unit ? `unit=eq.${encodeURIComponent(unit)}` : "unit=is.null"}`
-    : `food_id=eq.${foodId}`;
-
-  const existing = await supabaseRequest("pantry_items", {
-    query: `?select=id,quantity&${filters}&user_id=eq.${window.currentUserId}&limit=1`
-  });
-
-  if (existing.length) {
-    const newQty = (existing[0].quantity || 0) + qty;
-    await supabaseRequest("pantry_items", { method: "PATCH", query: `?id=eq.${existing[0].id}`, body: { quantity: newQty } });
-  } else {
-    const body = { quantity: qty, unit: unit || null, user_id: window.currentUserId };
-    if (ingredientId) body.ingredient_id = ingredientId; else body.food_id = foodId;
-    await supabaseRequest("pantry_items", { method: "POST", body });
-  }
-}
-
 async function confirmCompleteShop() {
   try {
-    for (let i = 0; i < pendingShopRows.length; i++) {
-      const r = pendingShopRows[i];
+    const items = pendingShopRows.map((r, i) => {
       const qtyRaw = document.getElementById(`shopQty_${i}`).value;
-      const qty = qtyRaw === "" ? 0 : Number(qtyRaw);
-      await addToPantry({ ingredientId: r.type === "ingredient" ? r.refId : null, foodId: r.type === "food" ? r.refId : null, unit: r.unit }, qty);
-      checkedKeys.delete(r.key);
-    }
+      return {
+        ingredientId: r.type === "ingredient" ? r.refId : null,
+        foodId: r.type === "food" ? r.refId : null,
+        unit: r.unit,
+        qty: qtyRaw === "" ? 0 : Number(qtyRaw)
+      };
+    });
+
+    await addItemsToPantry(items);
+
+    pendingShopRows.forEach(r => checkedKeys.delete(r.key));
     saveCheckedToStorage();
     closeModal();
     alert("Pantry updated.");
