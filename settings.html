@@ -26,6 +26,10 @@
   .theme-pill button:not(:last-child)::after { content:""; position:absolute; right:0; top:22%; bottom:22%; width:1px; background:var(--line); }
   .theme-pill button:hover { background:var(--surface-2); }
   .theme-pill button.active { background:var(--accent-soft); color:var(--accent-dark); font-weight:600; }
+  .password-checklist { font-size:12px; margin:-4px 0 14px; display:flex; flex-direction:column; gap:4px; }
+  .password-checklist .req { display:flex; align-items:center; gap:6px; color:var(--muted); }
+  .password-checklist .req.met { color:var(--success); }
+  .password-checklist .req svg { flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -34,8 +38,8 @@
 
 <div class="card settings-card">
   <h3>Profile</h3>
-  <div class="field"><label>First name</label><input id="sFirstName" placeholder="e.g. George"></div>
-  <div class="field"><label>Last name</label><input id="sLastName" placeholder="e.g. Self"></div>
+  <div class="field"><label>First name</label><input id="sFirstName" placeholder="e.g. John"></div>
+  <div class="field"><label>Last name</label><input id="sLastName" placeholder="e.g. Smith"></div>
   <div class="field"><label>Avatar URL</label><input id="sAvatar" placeholder="Optional — link to an image already online"></div>
   <div class="field">
     <label>Account type</label>
@@ -52,7 +56,12 @@
 
 <div class="card settings-card">
   <h3>Password</h3>
-  <div class="field"><label>New password</label><input id="sPassword" type="password" placeholder="At least 6 characters"></div>
+  <div class="field"><label>Current password</label><input id="sCurrentPassword" type="password" placeholder="Your existing password"></div>
+  <div class="field">
+    <label>New password</label>
+    <input id="sPassword" type="password" placeholder="At least 6 characters" oninput="renderPasswordChecklist(this.value, 'sPasswordChecklist')">
+  </div>
+  <div id="sPasswordChecklist" class="password-checklist"></div>
   <button class="btn" style="border-radius:999px;" onclick="changePassword()">Update password</button>
 </div>
 

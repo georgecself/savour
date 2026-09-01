@@ -30,6 +30,10 @@
   .auth-message { font-size:13px; margin-top:12px; padding:10px; border-radius:8px; }
   .auth-message.error { background:var(--rust-soft); color:var(--rust); }
   .auth-message.success { background:var(--accent-soft); color:var(--accent-dark); }
+  .password-checklist { font-size:12px; margin:-8px 0 14px; display:flex; flex-direction:column; gap:4px; }
+  .password-checklist .req { display:flex; align-items:center; gap:6px; color:var(--muted); }
+  .password-checklist .req.met { color:var(--success); }
+  .password-checklist .req svg { flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -55,8 +59,9 @@
   </div>
   <div class="field">
     <label>Password</label>
-    <input id="authPassword" type="password" placeholder="••••••••">
+    <input id="authPassword" type="password" placeholder="••••••••" oninput="onAuthPasswordInput()">
   </div>
+  <div id="authPasswordChecklist" class="password-checklist" style="display:none;"></div>
 
   <div class="auth-actions">
     <button class="btn primary" style="border-radius:999px;" id="authSubmitBtn" onclick="handleSubmit()">Sign in</button>
