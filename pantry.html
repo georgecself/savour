@@ -29,6 +29,10 @@
   .row-icon-btn { width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .row-icon-btn:hover { background:var(--surface-2); }
   .row-icon-btn.danger:hover { background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+  .icon-btn.danger:hover { background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
+  .toolbar-row { display:flex; align-items:center; gap:10px; }
 
   .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(43,38,32,.4); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
@@ -63,7 +67,12 @@
 
 <div class="section-head">
   <h2>Pantry</h2>
-  <button class="btn primary" style="border-radius:999px;" id="addPantryBtn">＋ Add item</button>
+  <div class="toolbar-row">
+    <button class="icon-btn danger" onclick="clearPantry()" title="Clear all" aria-label="Clear all">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>
+    </button>
+    <button class="btn primary" style="border-radius:999px;" id="addPantryBtn">＋ Add item</button>
+  </div>
 </div>
 <p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
   What you've already got. Items here are subtracted from your shopping list automatically.
