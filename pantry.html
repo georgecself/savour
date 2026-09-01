@@ -9,24 +9,30 @@
   }
 })();
 </script>
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Pantry</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
 <style>
   .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:18px; }
-  .toolbar input { flex:1; max-width:320px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .toolbar input { flex:1; max-width:320px; }
   .pantry-table { width:100%; border-collapse:collapse; }
   .pantry-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); }
   .pantry-table td { padding:12px 14px; border-bottom:1px solid var(--line); font-size:14px; }
+  .pantry-table tr:last-child td { border-bottom:0; }
   .pantry-table .num { color:var(--muted); }
-  .actions { display:flex; gap:7px; }
   .empty-state { color:var(--muted); padding:30px; text-align:center; }
   .table-card { padding:0; overflow-x:auto; }
 
-  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.38); align-items:center; justify-content:center; padding:20px; z-index:10; }
+  .row-actions { display:flex; gap:6px; }
+  .row-icon-btn { width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .row-icon-btn:hover { background:var(--surface-2); }
+  .row-icon-btn.danger:hover { background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
+
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(43,38,32,.4); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
-  .modal { width:min(520px,100%); max-height:90vh; overflow:auto; background:white; border-radius:20px; padding:24px; }
+  .modal { width:min(520px,100%); max-height:90vh; overflow:auto; background:var(--surface); border-radius:20px; padding:24px; }
   .modal h2 { margin-top:0; margin-bottom:4px; }
   .modal .meta { color:var(--muted); font-size:13px; margin-bottom:16px; }
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
@@ -37,7 +43,7 @@
 
   .field { margin-bottom:13px; }
   .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
-  .field input { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:white; box-sizing:border-box; }
+  .field input { width:100%; box-sizing:border-box; }
   .qty-unit-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
   .pick-options { max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
@@ -54,48 +60,29 @@
 </style>
 </head>
 <body>
-<div class="app">
-<header>
-  <div class="brand">
-    <h1>Savour</h1>
-    <p>Plan your week. Know what to buy. Waste less.</p>
-  </div>
-  <nav class="nav">
-    <a href="index.html">📅 Week</a>
-    <a href="recipes.html">🍳 Recipes</a>
-    <a href="ingredients.html">🥕 Ingredients</a>
-    <a href="foods.html">🥫 Foods</a>
-    <a href="shopping.html">🛒 Shopping</a>
-    <a href="pantry.html" class="active">📦 Pantry</a>
-    <a href="deal-check.html">🎯 Deal Check</a>
-  </nav>
-</header>
 
-<main>
-<section id="pantry" class="view active">
-  <div class="section-head"><h2>Pantry</h2><button class="btn primary" id="addPantryBtn">＋ Add item</button></div>
-  <p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
-    What you've already got. Items here are subtracted from your shopping list automatically.
-  </p>
-  <div class="toolbar">
-    <input id="searchInput" placeholder="Search pantry…">
-  </div>
-  <div class="card table-card">
-    <div id="pantryTable"></div>
-  </div>
-</section>
-</main>
+<div class="section-head">
+  <h2>Pantry</h2>
+  <button class="btn primary" style="border-radius:999px;" id="addPantryBtn">＋ Add item</button>
+</div>
+<p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
+  What you've already got. Items here are subtracted from your shopping list automatically.
+</p>
+<div class="toolbar">
+  <input id="searchInput" placeholder="Search pantry…">
+</div>
+<div class="card table-card">
+  <div id="pantryTable"></div>
 </div>
 
 <div id="modalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
   <div id="modal" class="modal"></div>
 </div>
 
-<div id="status" class="status">Connecting to Supabase…</div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/shell.js"></script>
 <script src="js/pantry.js"></script>
 </body>
 </html>
