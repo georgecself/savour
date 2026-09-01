@@ -1,52 +1,41 @@
-const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
+// foods.js — foods database + editor for Savour.
+// Same conventions as recipes.js: cloned_from tracks lineage so "already
+// added" state is real database fact, not session memory, and both the
+// individual card button and "Add all new foods" read from the same place.
 
 const state = {
   myFoods: [],
   libraryFoods: [],
   activeTab: "mine",
-  editingId: null
+  editingFoodId: null
 };
 
-const els = {
-  table: document.getElementById("foodTable"),
-  search: document.getElementById("searchInput"),
-  modal: document.getElementById("modalBackdrop"),
-  modalTitle: document.getElementById("modalTitle"),
-  name: document.getElementById("foodName"),
-  brand: document.getElementById("foodBrand"),
-  category: document.getElementById("foodCategory"),
-  servingSize: document.getElementById("foodServingSize"),
-  servingUnit: document.getElementById("foodServingUnit"),
-  calories: document.getElementById("foodCalories"),
-  protein: document.getElementById("foodProtein"),
-  carbs: document.getElementById("foodCarbs"),
-  fat: document.getElementById("foodFat"),
-  price: document.getElementById("foodPrice"),
-  add: document.getElementById("addFoodBtn"),
-  cancel: document.getElementById("cancelBtn"),
-  save: document.getElementById("saveBtn"),
-  status: document.getElementById("status"),
-  importLink: document.getElementById("importLink")
+const ICONS = {
+  edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  remove: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>`
 };
 
-function setStatus(message) {
-  els.status.textContent = message;
+const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,cloned_from,is_public";
+
+function getAddedLibraryIds() {
+  return new Set(state.myFoods.map(f => f.clonedFrom).filter(Boolean));
 }
 
-function fmtNum(n, suffix = "") {
-  return n === null || n === undefined ? "—" : `${n}${suffix}`;
-}
-
-const FOOD_SELECT = "id,user_id,name,brand,serving_size,serving_unit,calories,protein_g,carbohydrates_g,fat_g,price,shopping_category,is_public,created_at";
+// ---------- Loading ----------
 
 async function loadFoodsMatching(query) {
-  return supabaseRequest("foods", { query: `?select=${FOOD_SELECT}&${query}&order=name.asc` });
+  const rows = await supabaseRequest("foods", { query: `?select=${FOOD_SELECT}&${query}&order=name.asc` });
+  return rows.map(f => ({
+    id: f.id, userId: f.user_id, name: f.name, brand: f.brand || "",
+    servingSize: f.serving_size, servingUnit: f.serving_unit || "",
+    calories: f.calories, protein: f.protein_g, carbs: f.carbohydrates_g, fat: f.fat_g,
+    price: f.price, category: f.shopping_category || "", clonedFrom: f.cloned_from || null, isPublic: f.is_public
+  }));
 }
 
-async function loadFoods() {
+async function loadAll() {
   try {
-    setStatus("Loading foods…");
-
+    setShellStatus(undefined, "Loading…");
     const [mine, library] = await Promise.all([
       loadFoodsMatching(`user_id=eq.${window.currentUserId}`),
       loadFoodsMatching(`is_public=eq.true`)
@@ -55,19 +44,17 @@ async function loadFoods() {
     state.libraryFoods = library;
 
     if (window.currentUserId === ADMIN_USER_ID) {
-      els.importLink.style.display = "inline-block";
+      const importLink = document.getElementById("importLink");
+      if (importLink) importLink.style.display = "flex";
     }
 
+    renderCategoryFilterOptions();
     renderFoods();
-    setStatus(`${state.myFoods.length} food${state.myFoods.length === 1 ? "" : "s"}`);
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setStatus("Connection failed");
-    els.table.innerHTML = `
-      <div class="empty-state">
-        <strong>Couldn't load foods.</strong><br>
-        Check the browser console for details.
-      </div>`;
+    setShellStatus("error", "Database connection failed");
+    document.getElementById("foodGrid").innerHTML = `<div class="empty-state">Couldn't load foods. Check the browser console for details.</div>`;
   }
 }
 
@@ -75,228 +62,262 @@ function switchTab(tab) {
   state.activeTab = tab;
   document.getElementById("tabMine").classList.toggle("active", tab === "mine");
   document.getElementById("tabLibrary").classList.toggle("active", tab === "library");
+  document.getElementById("addAllBtn").style.display = tab === "library" ? "flex" : "none";
+  document.getElementById("createFoodBtn").style.display = tab === "mine" ? "flex" : "none";
+  renderCategoryFilterOptions();
   renderFoods();
 }
 
-function renderFoods() {
-  const term = els.search.value.trim().toLowerCase();
+function renderCategoryFilterOptions() {
   const source = state.activeTab === "library" ? state.libraryFoods : state.myFoods;
+  const present = [...new Set(source.map(f => f.category).filter(Boolean))].sort();
+  const select = document.getElementById("categoryFilter");
+  const current = select.value;
+  select.innerHTML = `<option value="">All categories</option>` + present.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  if (present.includes(current)) select.value = current;
+}
 
-  const filtered = source.filter(item =>
-    item.name.toLowerCase().includes(term) ||
-    (item.brand || "").toLowerCase().includes(term) ||
-    item.shopping_category.toLowerCase().includes(term)
+// ---------- Card grid ----------
+
+function renderFoods() {
+  const term = document.getElementById("searchInput").value.trim().toLowerCase();
+  const categoryValue = document.getElementById("categoryFilter").value;
+  const source = state.activeTab === "library" ? state.libraryFoods : state.myFoods;
+  const addedIds = getAddedLibraryIds();
+  const filtered = source.filter(f =>
+    f.name.toLowerCase().includes(term) &&
+    (!categoryValue || f.category === categoryValue)
   );
+
+  const grid = document.getElementById("foodGrid");
 
   if (!filtered.length) {
     const emptyMsg = state.activeTab === "library"
-      ? (term ? "No library foods match your search." : "No shared foods yet.")
-      : (term ? "No foods match your search." : "No foods yet — add your first one.");
-    els.table.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
+      ? (term || categoryValue ? "No library foods match." : "No shared foods yet.")
+      : (term || categoryValue ? "No foods match." : "No foods yet — create your first one.");
+    grid.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
     return;
   }
 
-  els.table.innerHTML = `
-    <table class="food-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Brand</th>
-          <th>Category</th>
-          <th>Serving</th>
-          <th>Cals</th>
-          <th>Protein</th>
-          <th>Carbs</th>
-          <th>Fat</th>
-          <th>Price</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map(item => {
-          const isMine = item.user_id === window.currentUserId;
-          return `
-          <tr>
-            <td class="wrap">
-              <strong>${esc(item.name)}</strong>
-              ${state.activeTab === "library" ? `<br><span class="owner-badge">${isMine ? "Yours" : "Shared"}</span>` : ""}
-            </td>
-            <td>${esc(item.brand || "—")}</td>
-            <td>${esc(item.shopping_category)}</td>
-            <td class="num">${item.serving_size ? esc(String(item.serving_size)) + " " + esc(item.serving_unit || "") : "—"}</td>
-            <td class="num">${fmtNum(item.calories)}</td>
-            <td class="num">${fmtNum(item.protein_g, "g")}</td>
-            <td class="num">${fmtNum(item.carbohydrates_g, "g")}</td>
-            <td class="num">${fmtNum(item.fat_g, "g")}</td>
-            <td class="num">${item.price !== null ? "£" + Number(item.price).toFixed(2) : "—"}</td>
-            <td>
-              <div class="actions">
-                ${isMine
-                  ? `<button class="btn" onclick="openEditFood('${item.id}')">Edit</button><button class="btn danger" onclick="deleteFood('${item.id}')">Delete</button>`
-                  : `<button class="btn primary" onclick="cloneFood('${item.id}')">＋ Add to mine</button>`
-                }
-              </div>
-            </td>
-          </tr>
-        `;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
+  grid.innerHTML = filtered.map(f => {
+    const isMine = f.userId === window.currentUserId;
+
+    const menu = isMine ? `
+      <div class="item-menu-wrap">
+        <button class="kebab-btn" onclick="toggleCardMenu(event, '${f.id}')" aria-label="Options">⋮</button>
+        <div class="item-menu" id="menu-${f.id}">
+          <button onclick="closeAllCardMenus(); openFoodModal('${f.id}')">${ICONS.edit} Edit</button>
+          <button class="danger" onclick="closeAllCardMenus(); deleteFood('${f.id}')">${ICONS.remove} Delete</button>
+        </div>
+      </div>
+    ` : "";
+
+    const badges = [];
+    if (state.activeTab === "library") badges.push(`<span class="owner-badge">${isMine ? "Yours · published" : "Shared"}</span>`);
+    if (f.category) badges.push(`<span class="category-badge">${esc(f.category)}</span>`);
+
+    const stats = [
+      f.calories !== null && f.calories !== undefined ? { v: Math.round(f.calories), l: "kcal" } : null,
+      f.protein !== null && f.protein !== undefined ? { v: `${Math.round(f.protein)}g`, l: "protein" } : null,
+      f.carbs !== null && f.carbs !== undefined ? { v: `${Math.round(f.carbs)}g`, l: "carbs" } : null,
+      f.fat !== null && f.fat !== undefined ? { v: `${Math.round(f.fat)}g`, l: "fat" } : null
+    ].filter(Boolean);
+
+    const statsHtml = stats.length
+      ? `<div class="food-stats">${stats.map(s => `<div class="food-stat"><span class="food-stat-value">${esc(String(s.v))}</span><span class="food-stat-label">${s.l}</span></div>`).join("")}</div>`
+      : `<div class="food-no-nutrition">No nutrition info added</div>`;
+
+    const alreadyAdded = addedIds.has(f.id);
+    const cta = !isMine
+      ? (alreadyAdded
+          ? `<button class="btn card-cta added" disabled>✓ Added</button>`
+          : `<button class="btn primary card-cta" onclick="cloneFood('${f.id}')">Add to my foods</button>`)
+      : "";
+
+    return `
+      <div class="card food-card">
+        <div class="food-card-top">
+          <div class="badge-row">${badges.join("")}</div>
+          ${menu}
+        </div>
+        <h3>${esc(f.name)}</h3>
+        ${f.brand ? `<div class="food-brand">${esc(f.brand)}</div>` : ""}
+        ${f.servingSize ? `<div class="food-serving">Per ${esc(String(f.servingSize))}${esc(f.servingUnit)}</div>` : ""}
+        ${statsHtml}
+        <div class="food-card-bottom">
+          ${f.price !== null && f.price !== undefined ? `<div class="food-price">£${Number(f.price).toFixed(2)}</div>` : `<div></div>`}
+          ${cta}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function toggleCardMenu(event, id) {
+  event.stopPropagation();
+  const menu = document.getElementById(`menu-${id}`);
+  const wasOpen = menu.classList.contains("open");
+  closeAllCardMenus();
+  if (!wasOpen) menu.classList.add("open");
+}
+
+function closeAllCardMenus() {
+  document.querySelectorAll(".item-menu.open").forEach(m => m.classList.remove("open"));
+}
+
+document.addEventListener("click", closeAllCardMenus);
+
+// ---------- Clone (library -> mine) ----------
+
+async function cloneFoodCore(source) {
+  const created = (await supabaseRequest("foods", {
+    method: "POST",
+    body: {
+      name: source.name, brand: source.brand || null, serving_size: source.servingSize,
+      serving_unit: source.servingUnit || null, calories: source.calories, protein_g: source.protein,
+      carbohydrates_g: source.carbs, fat_g: source.fat, price: source.price,
+      shopping_category: source.category || null, cloned_from: source.id,
+      user_id: window.currentUserId, is_public: false
+    }
+  }))[0];
+
+  state.myFoods.push({
+    id: created.id, userId: window.currentUserId, name: source.name, brand: source.brand,
+    servingSize: source.servingSize, servingUnit: source.servingUnit, calories: source.calories,
+    protein: source.protein, carbs: source.carbs, fat: source.fat, price: source.price,
+    category: source.category, clonedFrom: source.id, isPublic: false
+  });
 }
 
 async function cloneFood(id) {
+  if (getAddedLibraryIds().has(id)) return;
   const source = state.libraryFoods.find(f => f.id === id);
   if (!source) return;
-  if (!confirm(`Add "${source.name}" to your own foods?`)) return;
 
   try {
-    await supabaseRequest("foods", {
-      method: "POST",
-      body: {
-        name: source.name, brand: source.brand, shopping_category: source.shopping_category,
-        serving_size: source.serving_size, serving_unit: source.serving_unit,
-        calories: source.calories, protein_g: source.protein_g, carbohydrates_g: source.carbohydrates_g,
-        fat_g: source.fat_g, price: source.price,
-        user_id: window.currentUserId, is_public: false
-      }
-    });
-    await loadFoods();
-    switchTab("mine");
-    alert(`"${source.name}" is now in your own foods.`);
+    await cloneFoodCore(source);
+    renderCategoryFilterOptions();
+    renderFoods();
   } catch (error) {
     console.error(error);
     alert("Couldn't add that food. Check the browser console for details.");
   }
 }
 
-function fillForm(item) {
-  els.name.value = item?.name || "";
-  els.brand.value = item?.brand || "";
-  els.category.value = item?.shopping_category || "Other";
-  els.servingSize.value = item?.serving_size ?? "";
-  els.servingUnit.value = item?.serving_unit || "";
-  els.calories.value = item?.calories ?? "";
-  els.protein.value = item?.protein_g ?? "";
-  els.carbs.value = item?.carbohydrates_g ?? "";
-  els.fat.value = item?.fat_g ?? "";
-  els.price.value = item?.price ?? "";
-}
-
-function openAddFood() {
-  state.editingId = null;
-  els.modalTitle.textContent = "Add food";
-  fillForm(null);
-  els.modal.classList.add("open");
-  setTimeout(() => els.name.focus(), 50);
-}
-
-function openEditFood(id) {
-  const item = [...state.myFoods, ...state.libraryFoods].find(x => x.id === id);
-  if (!item) return;
-
-  state.editingId = id;
-  els.modalTitle.textContent = "Edit food";
-  fillForm(item);
-  els.modal.classList.add("open");
-  setTimeout(() => els.name.focus(), 50);
-}
-
-function closeModal() {
-  els.modal.classList.remove("open");
-}
-
-function numOrNull(value) {
-  return value === "" ? null : Number(value);
-}
-
-async function saveFood() {
-  const name = els.name.value.trim();
-
-  if (!name) {
-    alert("Please enter a food name.");
+async function addAllNewFoods() {
+  const toAdd = state.libraryFoods.filter(f => f.userId !== window.currentUserId && !getAddedLibraryIds().has(f.id));
+  if (!toAdd.length) {
+    alert("Nothing new to add — your library is already up to date.");
     return;
   }
+  if (!confirm(`Add all ${toAdd.length} new food${toAdd.length === 1 ? "" : "s"} to your own foods?`)) return;
 
-  const payload = {
-    name,
-    brand: els.brand.value.trim() || null,
-    shopping_category: els.category.value,
-    serving_size: numOrNull(els.servingSize.value),
-    serving_unit: els.servingUnit.value.trim() || null,
-    calories: numOrNull(els.calories.value),
-    protein_g: numOrNull(els.protein.value),
-    carbohydrates_g: numOrNull(els.carbs.value),
-    fat_g: numOrNull(els.fat.value),
-    price: numOrNull(els.price.value)
-  };
+  const btn = document.getElementById("addAllBtn");
+  btn.disabled = true;
+  let done = 0, failed = 0;
 
-  els.save.disabled = true;
-  els.save.textContent = "Saving…";
-
-  try {
-    if (state.editingId) {
-      // Not touching is_public here — PATCH only updates the fields listed,
-      // so publish status (set via the importer) is left exactly as it was.
-      await supabaseRequest("foods", {
-        method: "PATCH",
-        query: `?id=eq.${state.editingId}`,
-        body: payload
-      });
-    } else {
-      await supabaseRequest("foods", {
-        method: "POST",
-        body: { ...payload, user_id: window.currentUserId }
-      });
+  for (const food of toAdd) {
+    try {
+      await cloneFoodCore(food);
+      done++;
+    } catch (error) {
+      console.error(error);
+      failed++;
     }
-
-    closeModal();
-    await loadFoods();
-  } catch (error) {
-    console.error(error);
-    alert("Couldn't save the food. Check the browser console for details.");
-  } finally {
-    els.save.disabled = false;
-    els.save.textContent = "Save food";
   }
+
+  btn.disabled = false;
+  renderCategoryFilterOptions();
+  renderFoods();
+  alert(`Added ${done} food${done === 1 ? "" : "s"}.${failed ? ` ${failed} failed — check the browser console.` : ""}`);
 }
 
 async function deleteFood(id) {
-  const item = [...state.myFoods, ...state.libraryFoods].find(x => x.id === id);
-  if (!item) return;
-
-  if (!confirm(`Delete "${item.name}"? This will also remove it from any meal plans or pantry entries it's used in.`)) return;
-
+  if (!confirm("Delete this food? This can't be undone.")) return;
   try {
-    await supabaseRequest("foods", {
-      method: "DELETE",
-      query: `?id=eq.${id}`,
-      prefer: "return=minimal"
-    });
-
-    await loadFoods();
+    await supabaseRequest("foods", { method: "DELETE", query: `?id=eq.${id}`, prefer: "return=minimal" });
+    await loadAll();
   } catch (error) {
     console.error(error);
     alert("Couldn't delete the food. Check the browser console for details.");
   }
 }
 
-els.add.addEventListener("click", openAddFood);
-els.cancel.addEventListener("click", closeModal);
-els.save.addEventListener("click", saveFood);
-els.search.addEventListener("input", renderFoods);
+// ---------- Editor modal ----------
 
+function openFoodModal(id = null) {
+  state.editingFoodId = id;
+  const food = id ? state.myFoods.find(f => f.id === id) : null;
 
-els.modal.addEventListener("click", event => {
-  if (event.target === els.modal) closeModal();
-});
+  document.getElementById("modalTitle").textContent = food ? "Edit food" : "Add food";
+  document.getElementById("foodName").value = food ? food.name : "";
+  document.getElementById("foodBrand").value = food ? food.brand : "";
+  document.getElementById("foodCategory").value = food && food.category ? food.category : "Other";
+  document.getElementById("foodServingSize").value = food && food.servingSize !== null ? food.servingSize : "";
+  document.getElementById("foodServingUnit").value = food ? food.servingUnit : "";
+  document.getElementById("foodCalories").value = food && food.calories !== null && food.calories !== undefined ? food.calories : "";
+  document.getElementById("foodProtein").value = food && food.protein !== null && food.protein !== undefined ? food.protein : "";
+  document.getElementById("foodCarbs").value = food && food.carbs !== null && food.carbs !== undefined ? food.carbs : "";
+  document.getElementById("foodFat").value = food && food.fat !== null && food.fat !== undefined ? food.fat : "";
+  document.getElementById("foodPrice").value = food && food.price !== null && food.price !== undefined ? food.price : "";
 
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape") closeModal();
-});
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modalBackdrop").classList.remove("open");
+}
+
+function numOrNull(value) {
+  const trimmed = String(value).trim();
+  return trimmed === "" ? null : Number(trimmed);
+}
+
+async function saveFood() {
+  const name = document.getElementById("foodName").value.trim();
+  if (!name) { alert("Please give the food a name."); return; }
+
+  const payload = {
+    name,
+    brand: document.getElementById("foodBrand").value.trim() || null,
+    shopping_category: document.getElementById("foodCategory").value || null,
+    serving_size: numOrNull(document.getElementById("foodServingSize").value),
+    serving_unit: document.getElementById("foodServingUnit").value.trim() || null,
+    calories: numOrNull(document.getElementById("foodCalories").value),
+    protein_g: numOrNull(document.getElementById("foodProtein").value),
+    carbohydrates_g: numOrNull(document.getElementById("foodCarbs").value),
+    fat_g: numOrNull(document.getElementById("foodFat").value),
+    price: numOrNull(document.getElementById("foodPrice").value)
+  };
+
+  const saveBtn = document.querySelector(".modal-actions .primary");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving…";
+
+  try {
+    if (state.editingFoodId) {
+      await supabaseRequest("foods", { method: "PATCH", query: `?id=eq.${state.editingFoodId}`, body: payload });
+    } else {
+      await supabaseRequest("foods", { method: "POST", body: { ...payload, user_id: window.currentUserId, is_public: false } });
+    }
+    closeModal();
+    await loadAll();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't save the food: " + (error.message || "unknown error") + "\nCheck the browser console for details.");
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save food";
+  }
+}
 
 (async function init() {
   const uid = await window.authReady;
-  if (!uid) return; // redirecting to login
-  await loadFoods();
+  if (!uid) return;
+  await loadAll();
+
+  const editId = new URLSearchParams(window.location.search).get("edit");
+  if (editId && state.myFoods.some(f => f.id === editId)) {
+    openFoodModal(editId);
+  }
 })();
