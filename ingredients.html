@@ -1,106 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Savour — Ingredients</title>
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savour — Ingredients</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<style>
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; text-decoration:none; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .toolbar input { flex:1; max-width:320px; }
+  .table-card { padding:0; overflow-x:auto; }
+  .ingredient-table { width:100%; border-collapse:collapse; }
+  .ingredient-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); }
+  .ingredient-table td { padding:12px 14px; border-bottom:1px solid var(--line); font-size:14px; }
+  .ingredient-table tr:last-child td { border-bottom:0; }
+  .staple-tag { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-left:6px; }
+  .empty-state { color:var(--muted); padding:30px; text-align:center; }
+
+  .requests-section { margin-bottom:24px; }
+  .requests-section h3 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--gold-dark); margin:0 0 10px; }
+  .request-row { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); }
+  .request-row:last-child { border-bottom:0; }
+  .request-info { flex:1; }
+  .request-name { font-weight:600; font-size:14px; }
+  .request-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .request-actions { display:flex; gap:6px; }
+  .row-icon-btn { width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .row-icon-btn:hover { background:var(--surface-2); }
+  .row-icon-btn.approve:hover { background:var(--success-soft); border-color:var(--success); color:var(--success); }
+  .row-icon-btn.reject:hover { background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
+  .requests-card.reminder { background:var(--gold-soft); border-color:var(--gold-soft); }
+
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(43,38,32,.4); align-items:center; justify-content:center; padding:20px; z-index:10; }
+  .modal-backdrop.open { display:flex; }
+  .modal { width:min(480px,100%); max-height:90vh; overflow:auto; background:var(--surface); border-radius:20px; padding:24px; }
+  .modal h2 { margin-top:0; margin-bottom:4px; }
+  .modal .meta { color:var(--muted); font-size:13px; margin-bottom:16px; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
+  .field { margin-bottom:13px; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .field input, .field select { width:100%; box-sizing:border-box; }
+  .checkbox-row { display:flex; align-items:center; gap:8px; font-size:14px; margin:12px 0; }
+  .checkbox-row input { width:17px; height:17px; accent-color:var(--accent); }
+</style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="brand">
-      <h1>Savour</h1>
-      <p>Global ingredient database</p>
-    </div>
 
-    <nav class="nav">
-      <a href="index.html">📅 Week</a>
-      <a href="recipes.html">🍳 Recipes</a>
-      <a href="ingredients.html" class="active">🥕 Ingredients</a>
-      <a href="foods.html">🥫 Foods</a>
-      <a href="shopping.html">🛒 Shopping</a>
-      <a href="pantry.html">📦 Pantry</a>
-      <a href="deal-check.html">🎯 Deal Check</a>
-    </nav>
-  </header>
+<div class="section-head">
+  <h2>Ingredients</h2>
+  <button class="btn primary" style="border-radius:999px;" id="requestBtn">＋ Request an ingredient</button>
+</div>
+<p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
+  Shared across everyone, so it's read-only here to avoid one person's edits silently affecting everyone else's recipes. Missing something? Send a request below and it'll be reviewed.
+</p>
 
-  <main>
-    <div class="section-head">
-      <div>
-        <h2>Ingredients</h2>
-        <p style="margin:5px 0 0;color:var(--muted)">
-          Shared global ingredients used by recipes and shopping.
-        </p>
-      </div>
-      <button class="btn primary" id="addIngredientBtn">＋ Add ingredient</button>
-    </div>
+<div id="requestsContainer"></div>
 
-    <div class="toolbar">
-      <input id="searchInput" type="search" placeholder="Search ingredients…">
-    </div>
-
-    <div class="card">
-      <div id="ingredientTable"></div>
-    </div>
-  </main>
+<div class="toolbar">
+  <input id="searchInput" placeholder="Search ingredients…">
+</div>
+<div class="card table-card">
+  <div id="ingredientTable"></div>
 </div>
 
-<div id="modalBackdrop" class="modal-backdrop">
-  <div class="modal">
-    <h2 id="modalTitle">Add ingredient</h2>
-
-    <div class="field">
-      <label for="ingredientName">Name</label>
-      <input id="ingredientName" placeholder="e.g. Avocado">
-    </div>
-
-    <div class="field">
-      <label for="ingredientCategory">Category</label>
-      <select id="ingredientCategory">
-        <option>Fruit & Veg</option>
-        <option>Meat</option>
-        <option>Fish</option>
-        <option>Dairy</option>
-        <option>Tinned & Dry</option>
-        <option>Herbs & Spices</option>
-        <option>Bakery</option>
-        <option>Frozen</option>
-        <option>Drinks</option>
-        <option>Other</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="ingredientUnit">Default unit</label>
-      <select id="ingredientUnit">
-        <option value="">None</option>
-        <option value="g">g</option>
-        <option value="kg">kg</option>
-        <option value="ml">ml</option>
-        <option value="l">l</option>
-        <option value="item">item</option>
-        <option value="clove">clove</option>
-        <option value="tin">tin</option>
-        <option value="pack">pack</option>
-        <option value="slice">slice</option>
-        <option value="tbsp">tbsp</option>
-        <option value="tsp">tsp</option>
-      </select>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn" id="cancelBtn">Cancel</button>
-      <button class="btn primary" id="saveBtn">Save ingredient</button>
-    </div>
-  </div>
+<div id="modalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+  <div id="modal" class="modal"></div>
 </div>
-
-<div id="status" class="status">Connecting to Supabase…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/shell.js"></script>
 <script src="js/ingredients.js"></script>
 </body>
 </html>
