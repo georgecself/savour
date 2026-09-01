@@ -326,7 +326,8 @@ async function attachPortionsRemaining() {
     claims.forEach(c => { eatenByBatch[c.leftover_of] = (eatenByBatch[c.leftover_of] || 0) + (c.portions_eaten || 0); });
 
     cookEntries.forEach(item => {
-      item.portionsRemaining = (item.portionsMade || 0) - (eatenByBatch[item.id] || 0);
+      const eatenTonight = item.portionsEaten || 0; // the cook-fresh entry now records its own night's consumption too
+      item.portionsRemaining = (item.portionsMade || 0) - eatenTonight - (eatenByBatch[item.id] || 0);
     });
   } catch (error) {
     console.error(error); // non-critical — just skip showing the indicator
@@ -498,7 +499,7 @@ async function fetchEligibleBatches(recipeId, uptoIso) {
 
   const planIds = plans.map(p => `"${p.id}"`).join(",");
   const items = await supabaseRequest("meal_plan_items", {
-    query: `?select=id,day,portions_made&recipe_id=eq.${recipeId}&leftover_of=is.null&meal_plan_id=in.(${planIds})&day=lte.${uptoIso}&order=day.desc&limit=15`
+    query: `?select=id,day,portions_made,portions_eaten&recipe_id=eq.${recipeId}&leftover_of=is.null&meal_plan_id=in.(${planIds})&day=lte.${uptoIso}&order=day.desc&limit=15`
   });
   if (!items.length) return [];
 
@@ -514,7 +515,8 @@ async function fetchEligibleBatches(recipeId, uptoIso) {
   return items
     .map(i => {
       const made = i.portions_made || 0;
-      const remaining = made - (eatenByBatch[i.id] || 0);
+      const eatenTonight = i.portions_eaten || 0; // the cook-fresh entry's own night-of consumption
+      const remaining = made - eatenTonight - (eatenByBatch[i.id] || 0);
       return { id: i.id, made, remaining };
     })
     .filter(b => b.remaining > 0)
@@ -576,9 +578,16 @@ function renderAddModal() {
       </div>
       <div class="field">
         <label>${isLeftover ? "Portions eaten" : (isRecipe ? "Portions this makes" : "Quantity")}</label>
-        <input id="addQuantity" type="number" step="any" min="0" ${isLeftover ? `max="${eligibleBatches[0]?.remaining || 1}"` : ""} value="${isLeftover ? 1 : (isRecipe ? (recipeInfo?.servings || 1) : 1)}">
+        <input id="addQuantity" type="number" step="any" min="0" ${isLeftover ? `max="${eligibleBatches[0]?.remaining || 1}"` : ""} value="${isLeftover ? 1 : (isRecipe ? (recipeInfo?.servings || 1) : 1)}" ${isRecipe && !isLeftover ? `oninput="onPortionsMadeInput()"` : ""}>
       </div>
     </div>
+
+    ${isRecipe && !isLeftover ? `
+      <div class="field">
+        <label>Servings you'll eat tonight</label>
+        <input id="addServingsTonight" type="number" step="any" min="0" max="${recipeInfo?.servings || 1}" value="1">
+      </div>
+    ` : ""}
 
     ${isLeftover ? `
       <div class="field">
@@ -594,6 +603,15 @@ function renderAddModal() {
       <button class="btn primary" onclick="confirmAddItem()">Add</button>
     </div>
   `;
+}
+
+function onPortionsMadeInput() {
+  const madeInput = document.getElementById("addQuantity");
+  const tonightInput = document.getElementById("addServingsTonight");
+  if (!tonightInput) return;
+  const made = Number(madeInput.value) || 0;
+  tonightInput.max = made;
+  if (Number(tonightInput.value) > made) tonightInput.value = made;
 }
 
 function switchAddType(type) {
@@ -696,8 +714,16 @@ async function confirmAddItem() {
       localItem.portionsEaten = portionsEaten;
     } else {
       const portionsMade = Number(document.getElementById("addQuantity").value) || 1;
+      const servingsTonightRaw = document.getElementById("addServingsTonight").value;
+      const servingsTonight = servingsTonightRaw === "" ? 1 : Number(servingsTonightRaw);
+      if (servingsTonight > portionsMade) {
+        alert(`You can't eat more than the ${portionsMade} portion${portionsMade === 1 ? "" : "s"} you're making.`);
+        return;
+      }
       body.portions_made = portionsMade;
+      body.portions_eaten = servingsTonight;
       localItem.portionsMade = portionsMade;
+      localItem.portionsEaten = servingsTonight;
     }
   } else {
     body.food_id = sel.id;
@@ -751,9 +777,16 @@ function openEditModal(itemId) {
       </div>
       <div class="field">
         <label>${qtyLabel}</label>
-        <input id="editQuantity" type="number" step="any" min="0" value="${qtyValue}">
+        <input id="editQuantity" type="number" step="any" min="0" value="${qtyValue}" ${isRecipeCook ? `oninput="onEditPortionsMadeInput()"` : ""}>
       </div>
     </div>
+
+    ${isRecipeCook ? `
+      <div class="field">
+        <label>Servings you'll eat tonight</label>
+        <input id="editServingsTonight" type="number" step="any" min="0" max="${qtyValue}" value="${item.portionsEaten ?? 1}">
+      </div>
+    ` : ""}
 
     <div class="modal-actions">
       <button class="btn" onclick="closeModal()">Cancel</button>
@@ -761,6 +794,15 @@ function openEditModal(itemId) {
     </div>
   `;
   document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function onEditPortionsMadeInput() {
+  const madeInput = document.getElementById("editQuantity");
+  const tonightInput = document.getElementById("editServingsTonight");
+  if (!tonightInput) return;
+  const made = Number(madeInput.value) || 0;
+  tonightInput.max = made;
+  if (Number(tonightInput.value) > made) tonightInput.value = made;
 }
 
 async function saveEditItem(itemId) {
@@ -775,7 +817,16 @@ async function saveEditItem(itemId) {
   const qty = qtyRaw === "" ? 1 : Number(qtyRaw);
 
   const body = { meal_type: tag };
-  if (isRecipeCook) body.portions_made = qty;
+  if (isRecipeCook) {
+    const servingsTonightRaw = document.getElementById("editServingsTonight").value;
+    const servingsTonight = servingsTonightRaw === "" ? 1 : Number(servingsTonightRaw);
+    if (servingsTonight > qty) {
+      alert(`You can't eat more than the ${qty} portion${qty === 1 ? "" : "s"} you're making.`);
+      return;
+    }
+    body.portions_made = qty;
+    body.portions_eaten = servingsTonight;
+  }
   else if (isLeftover) body.portions_eaten = qty;
   else body.quantity = qty;
 
@@ -783,7 +834,7 @@ async function saveEditItem(itemId) {
     await supabaseRequest("meal_plan_items", { method: "PATCH", query: `?id=eq.${itemId}`, body });
 
     item.tag = tag;
-    if (isRecipeCook) item.portionsMade = qty;
+    if (isRecipeCook) { item.portionsMade = qty; item.portionsEaten = Number(document.getElementById("editServingsTonight").value) || 1; }
     else if (isLeftover) item.portionsEaten = qty;
     else item.quantity = qty;
 

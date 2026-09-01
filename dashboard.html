@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <script>
 (function(){
-  if (localStorage.getItem('savour_theme') === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  }
+  var pref = localStorage.getItem('savour_theme') || 'system';
+  var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.documentElement.setAttribute('data-theme', 'dark');
 })();
 </script>
 
