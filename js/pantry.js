@@ -11,19 +11,19 @@ const els = {
   search: document.getElementById("searchInput"),
   modal: document.getElementById("modal"),
   modalBackdrop: document.getElementById("modalBackdrop"),
-  add: document.getElementById("addPantryBtn"),
-  status: document.getElementById("status")
+  add: document.getElementById("addPantryBtn")
 };
 
-function setStatus(message) {
-  els.status.textContent = message;
-}
+const ROW_ICONS = {
+  edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  remove: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>`
+};
 
 // ---------- Loading ----------
 
 async function loadAll() {
   try {
-    setStatus("Loading pantry…");
+    setShellStatus(undefined, "Loading…");
 
     const [ingredients, foods, rawPantry] = await Promise.all([
       supabaseRequest("ingredients", { query: "?select=id,name,category,default_unit&order=name.asc" }),
@@ -46,10 +46,10 @@ async function loadAll() {
     }).filter(Boolean);
 
     renderTable();
-    setStatus(`${state.pantryItems.length} item${state.pantryItems.length === 1 ? "" : "s"} in pantry`);
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setStatus("Connection failed");
+    setShellStatus("error", "Database connection failed");
     els.table.innerHTML = `<div class="empty-state">Couldn't load the pantry. Check the browser console for details.</div>`;
   }
 }
@@ -71,13 +71,13 @@ function renderTable() {
       <tbody>
         ${filtered.map(p => `
           <tr>
-            <td>${p.type === "ingredient" ? "🥕" : "🥫"} ${esc(p.name)}</td>
+            <td>${esc(p.name)}</td>
             <td>${esc(p.category)}</td>
             <td class="num">${p.quantity !== null && p.quantity !== undefined ? esc(String(p.quantity)) + " " + esc(p.unit || "") : (p.unit ? esc(p.unit) : "some")}</td>
             <td>
-              <div class="actions">
-                <button class="btn" onclick="openEditModal('${p.id}')">Edit</button>
-                <button class="btn danger" onclick="deletePantryItem('${p.id}')">Remove</button>
+              <div class="row-actions">
+                <button class="row-icon-btn" onclick="openEditModal('${p.id}')" title="Edit" aria-label="Edit">${ROW_ICONS.edit}</button>
+                <button class="row-icon-btn danger" onclick="deletePantryItem('${p.id}')" title="Remove" aria-label="Remove">${ROW_ICONS.remove}</button>
               </div>
             </td>
           </tr>
@@ -102,8 +102,8 @@ function renderAddModal() {
       <h2>Add to pantry</h2>
       <p class="meta">Pick what you've got — you'll set the quantity next.</p>
       <div class="type-toggle">
-        <button type="button" class="type-btn ${state.addType === "ingredient" ? "active" : ""}" onclick="switchAddType('ingredient')">🥕 Ingredient</button>
-        <button type="button" class="type-btn ${state.addType === "food" ? "active" : ""}" onclick="switchAddType('food')">🥫 Food</button>
+        <button type="button" class="type-btn ${state.addType === "ingredient" ? "active" : ""}" onclick="switchAddType('ingredient')">Ingredient</button>
+        <button type="button" class="type-btn ${state.addType === "food" ? "active" : ""}" onclick="switchAddType('food')">Food</button>
       </div>
       <div class="field">
         <label>Search</label>
@@ -118,7 +118,7 @@ function renderAddModal() {
     els.modal.innerHTML = `
       <h2>Add to pantry</h2>
       <div class="selection-banner">
-        <span>${state.addType === "ingredient" ? "🥕" : "🥫"} ${esc(sel.name)}</span>
+        <span>${esc(sel.name)}</span>
         <button onclick="backToPicker()">Change</button>
       </div>
       <div class="qty-unit-row">
@@ -218,7 +218,7 @@ function openEditModal(id) {
   if (!item) return;
 
   els.modal.innerHTML = `
-    <h2>Edit ${item.type === "ingredient" ? "🥕" : "🥫"} ${esc(item.name)}</h2>
+    <h2>Edit ${esc(item.name)}</h2>
     <p class="meta">To change the item itself, remove this and add a new one.</p>
     <div class="qty-unit-row">
       <div class="field"><label>Quantity</label><input id="editQty" type="number" step="any" min="0" value="${item.quantity ?? ""}"></div>
