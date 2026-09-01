@@ -261,6 +261,22 @@ async function deletePantryItem(id) {
   }
 }
 
+async function clearPantry() {
+  if (!confirm("Clear everything from your pantry?")) return;
+  try {
+    await supabaseRequest("pantry_items", {
+      method: "DELETE",
+      query: `?user_id=eq.${window.currentUserId}`,
+      prefer: "return=minimal"
+    });
+    state.pantryItems = [];
+    renderTable();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't clear the pantry. Check the browser console for details.");
+  }
+}
+
 function closeModal() {
   els.modalBackdrop.classList.remove("open");
 }
