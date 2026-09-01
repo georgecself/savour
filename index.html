@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <script>
 (function(){
-  if (localStorage.getItem('savour_theme') === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  }
+  var pref = localStorage.getItem('savour_theme') || 'system';
+  var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.documentElement.setAttribute('data-theme', 'dark');
 })();
 </script>
 
@@ -194,7 +194,7 @@ const dayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
 const tagOrder = ["Breakfast","Lunch","Dinner","Snack"];
 
 function setDbStatus(message) {
-  const state = message === "Connected to Supabase" ? "ok" : message === "Database connection failed" ? "error" : undefined;
+  const state = message === "Connected to Server" ? "ok" : message === "Database connection failed" ? "error" : undefined;
   setShellStatus(state, message);
 }
 
@@ -302,7 +302,7 @@ async function loadAll() {
     await attachPortionsRemaining();
 
     renderWeek();
-    setDbStatus("Connected to Supabase");
+    setDbStatus("Connected to Server");
   } catch (error) {
     console.error(error);
     setDbStatus("Database connection failed");
