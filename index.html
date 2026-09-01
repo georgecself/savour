@@ -817,13 +817,41 @@ async function saveEditItem(itemId) {
   const qty = qtyRaw === "" ? 1 : Number(qtyRaw);
 
   const body = { meal_type: tag };
+  let servingsTonight = null;
+
   if (isRecipeCook) {
     const servingsTonightRaw = document.getElementById("editServingsTonight").value;
-    const servingsTonight = servingsTonightRaw === "" ? 1 : Number(servingsTonightRaw);
+    servingsTonight = servingsTonightRaw === "" ? 1 : Number(servingsTonightRaw);
+
     if (servingsTonight > qty) {
       alert(`You can't eat more than the ${qty} portion${qty === 1 ? "" : "s"} you're making.`);
       return;
     }
+
+    // Check against portions already claimed by leftover entries elsewhere
+    // in the plan — increasing tonight's serving (or reducing portions
+    // made) can otherwise overcommit a batch that's already spoken for.
+    try {
+      const claims = await supabaseRequest("meal_plan_items", {
+        query: `?select=portions_eaten&leftover_of=eq.${itemId}`
+      });
+      const claimedByLeftovers = claims.reduce((sum, c) => sum + (c.portions_eaten || 0), 0);
+
+      if (servingsTonight + claimedByLeftovers > qty) {
+        const available = Math.max(0, qty - claimedByLeftovers);
+        alert(
+          `You've already planned ${claimedByLeftovers} leftover portion${claimedByLeftovers === 1 ? "" : "s"} from this batch elsewhere this week.\n\n` +
+          `Eating ${servingsTonight} tonight would need ${servingsTonight + claimedByLeftovers} portions in total, but you're only making ${qty}.\n\n` +
+          `Most you can eat tonight without changing those leftover entries: ${available}.`
+        );
+        return;
+      }
+    } catch (error) {
+      console.error(error);
+      // If this check itself fails, don't block the save entirely — a
+      // permanently-stuck edit is worse than skipping one validation pass.
+    }
+
     body.portions_made = qty;
     body.portions_eaten = servingsTonight;
   }
@@ -834,7 +862,7 @@ async function saveEditItem(itemId) {
     await supabaseRequest("meal_plan_items", { method: "PATCH", query: `?id=eq.${itemId}`, body });
 
     item.tag = tag;
-    if (isRecipeCook) { item.portionsMade = qty; item.portionsEaten = Number(document.getElementById("editServingsTonight").value) || 1; }
+    if (isRecipeCook) { item.portionsMade = qty; item.portionsEaten = servingsTonight; }
     else if (isLeftover) item.portionsEaten = qty;
     else item.quantity = qty;
 
