@@ -2,89 +2,110 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Shopping List</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
 <style>
-  .summary-bar { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
-  .summary-pill { background:var(--accent-soft); color:var(--accent-dark); padding:8px 14px; border-radius:999px; font-size:13px; font-weight:600; }
-  .summary-note { color:var(--muted); font-size:12px; }
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+  .icon-btn.danger:hover { background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
+  .toolbar-row { display:flex; align-items:center; gap:10px; }
+
+  .week-nav-pill { display:flex; align-items:stretch; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .week-nav-pill button { border:0; background:transparent; color:var(--text); padding:9px 18px; cursor:pointer; font-size:14px; font-family:var(--font-body); position:relative; display:flex; align-items:center; }
+  .week-nav-pill button:not(:last-child)::after { content:""; position:absolute; right:0; top:22%; bottom:22%; width:1px; background:var(--line); }
+  .week-nav-pill button:hover { background:var(--surface-2); }
+
+  .shopping-stats { display:flex; border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-bottom:24px; background:var(--surface); flex-wrap:wrap; }
+  .shopping-stat { flex:1; min-width:110px; text-align:center; padding:16px 10px; position:relative; }
+  .shopping-stat:not(:last-child)::after { content:""; position:absolute; right:0; top:18%; bottom:18%; width:1px; background:var(--line); }
+  .shopping-stat-value { display:block; font-family:var(--font-display); font-size:24px; font-weight:600; }
+  .shopping-stat-label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-top:4px; }
+  .summary-note { color:var(--muted); font-size:12px; margin:-14px 0 20px; }
 
   .category { margin-bottom:22px; }
   .category h3 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 10px; }
   .category-card { padding:6px 0; }
-  .shop-row { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f0f0ed; }
+  .shop-row { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); }
   .shop-row:last-child { border-bottom:0; }
   .shop-row input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); flex-shrink:0; }
-  .shop-row.checked .shop-label { text-decoration:line-through; color:#aaa; }
+  .shop-row.checked .shop-label { text-decoration:line-through; color:var(--muted); }
   .shop-label { flex:1; font-size:14px; }
-  .shop-icon { margin-right:4px; }
   .shop-qty { color:var(--muted); font-size:13px; white-space:nowrap; }
   .shop-price { color:var(--accent-dark); font-size:13px; font-weight:600; white-space:nowrap; }
   .empty-state { color:var(--muted); padding:40px; text-align:center; }
-  .refresh-btn { border:0; background:transparent; cursor:pointer; font-size:16px; color:var(--muted); }
   .complete-shop-bar { margin-top:10px; text-align:center; }
 
-  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.38); align-items:center; justify-content:center; padding:20px; z-index:10; }
+  /* Distinct treatment for the two non-actionable sections */
+  .category.covered h3 { color:var(--success); }
+  .category-card.covered { background:var(--success-soft); border-color:var(--success-soft); }
+  .category-card.covered .shop-row { border-bottom-color:rgba(0,0,0,.06); }
+  .category-card.covered .shop-label { color:var(--success); opacity:.85; }
+
+  .category.reminder h3 { color:var(--gold-dark); }
+  .category-card.reminder { background:var(--gold-soft); border-color:var(--gold-soft); }
+  .category-card.reminder .shop-row { border-bottom-color:rgba(0,0,0,.06); }
+  .category-card.reminder .shop-label { color:var(--gold-dark); }
+
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(43,38,32,.4); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
-  .modal { width:min(560px,100%); max-height:90vh; overflow:auto; background:white; border-radius:20px; padding:24px; }
+  .modal { width:min(560px,100%); max-height:90vh; overflow:auto; background:var(--surface); border-radius:20px; padding:24px; }
   .modal h2 { margin-top:0; margin-bottom:4px; }
   .modal .meta { color:var(--muted); font-size:13px; margin-bottom:16px; }
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
-  .mark-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #f0f0ed; }
+  .mark-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); }
   .mark-row:last-child { border-bottom:0; }
   .mark-row-name { flex:1; font-size:14px; }
-  .mark-row input { width:90px; padding:8px; border:1px solid var(--line); border-radius:8px; text-align:right; }
+  .mark-row input { width:90px; padding:8px; text-align:right; }
   .mark-row-unit { width:50px; font-size:12px; color:var(--muted); }
 </style>
 </head>
 <body>
-<div class="app">
-<header>
-  <div class="brand">
-    <h1>Savour</h1>
-    <p>Plan your week. Know what to buy. Waste less.</p>
-  </div>
-  <nav class="nav">
-    <a href="index.html">📅 Week</a>
-    <a href="recipes.html">🍳 Recipes</a>
-    <a href="ingredients.html">🥕 Ingredients</a>
-    <a href="foods.html">🥫 Foods</a>
-    <a href="shopping.html" class="active">🛒 Shopping</a>
-    <a href="pantry.html">📦 Pantry</a>
-    <a href="deal-check.html">🎯 Deal Check</a>
-  </nav>
-</header>
 
-<main>
-<section id="shopping" class="view active">
-  <div class="section-head">
-    <h2 id="weekHeading">Shopping List <button class="refresh-btn" onclick="loadShoppingList()" title="Refresh">⟳</button></h2>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button class="btn" onclick="navigateWeek(-1)">◀</button>
-      <button class="btn" onclick="jumpToToday()">Today</button>
-      <button class="btn" onclick="navigateWeek(1)">▶</button>
-      <button class="btn" onclick="clearChecked()">Clear ticks</button>
+<div class="section-head">
+  <h2 id="weekHeading">Shopping List</h2>
+  <div class="toolbar-row">
+    <button class="icon-btn" onclick="loadShoppingList()" title="Refresh" aria-label="Refresh">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button class="icon-btn danger" onclick="clearChecked()" title="Clear ticks" aria-label="Clear ticks">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+    </button>
+    <div class="week-nav-pill">
+      <button onclick="navigateWeek(-1)" title="Previous week" aria-label="Previous week">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <button onclick="jumpToToday()">Today</button>
+      <button onclick="navigateWeek(1)" title="Next week" aria-label="Next week">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
     </div>
   </div>
-  <div id="summaryBar" class="summary-bar"></div>
-  <div id="listContainer"></div>
-  <div class="complete-shop-bar" id="completeShopBar" style="display:none;">
-    <button class="btn primary" onclick="openCompleteShopModal()">✅ Complete shop — add ticked items to pantry</button>
-  </div>
-</section>
-</main>
+</div>
+
+<div id="summaryBar"></div>
+<div id="listContainer"></div>
+<div class="complete-shop-bar" id="completeShopBar" style="display:none;">
+  <button class="btn primary" style="border-radius:999px;" onclick="openCompleteShopModal()">Complete shop — add ticked items to pantry</button>
 </div>
 
 <div id="modalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
   <div id="modal" class="modal"></div>
 </div>
 
-<div id="dbStatus" class="status">Connecting to Supabase…</div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/shell.js"></script>
 <script src="js/shopping.js"></script>
 </body>
 </html>
