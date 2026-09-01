@@ -42,6 +42,7 @@ async function load() {
       baseServings: r.servings || 2, time: r.cooking_time_minutes || 0,
       instructions: r.instructions || "", imageUrl: r.image_url || "", sourceUrl: r.source_url || "", category: r.category || "", isPublic: r.is_public,
       alreadyAdded: false,
+      myOwnCopyId: null,
       ingredients: ingredientRows.map(ri => ({
         name: ri.ingredients?.name || "(deleted ingredient)",
         unit: ri.unit || "",
@@ -54,6 +55,7 @@ async function load() {
         query: `?select=id&cloned_from=eq.${recipe.id}&user_id=eq.${window.currentUserId}&limit=1`
       });
       recipe.alreadyAdded = cloneCheck.length > 0;
+      recipe.myOwnCopyId = cloneCheck[0]?.id || null;
     }
 
     render();
@@ -91,7 +93,7 @@ function render() {
         ${isMine
           ? `<a class="btn primary" style="border-radius:999px;" href="recipes.html?edit=${recipe.id}">Edit recipe</a>`
           : (recipe.alreadyAdded
-              ? `<button class="btn" style="border-radius:999px;" disabled>✓ Already in your recipes</button>`
+              ? `<a class="btn" style="border-radius:999px;" href="recipe-view.html?id=${recipe.myOwnCopyId}">View your own recipe</a>`
               : `<button class="btn primary" style="border-radius:999px;" onclick="cloneRecipe()">＋ Add to my recipes</button>`)
         }
         ${isMine ? `<a class="btn" style="border-radius:999px;" href="index.html?addRecipe=${recipe.id}">Add to meal planner</a>` : ""}
@@ -257,6 +259,7 @@ async function cloneRecipe() {
 
     alert(`"${recipe.name}" is now in your own recipes.`);
     recipe.alreadyAdded = true;
+    recipe.myOwnCopyId = created.id;
     render();
   } catch (error) {
     console.error(error);
