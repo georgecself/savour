@@ -219,13 +219,13 @@ function renderResults(results) {
 
   if (uid !== ADMIN_USER_ID) {
     renderDenied();
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
     return;
   }
 
   try {
     ingredients = await supabaseRequest("ingredients", { query: "?select=id,name,default_unit&order=name.asc" });
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
   } catch (error) {
     console.error(error);
     setShellStatus("error", "Database connection failed");

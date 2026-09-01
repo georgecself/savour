@@ -69,7 +69,7 @@ async function loadShoppingList() {
 
     if (!plans.length) {
       renderEmpty();
-      setShellStatus("ok", "Connected to Supabase");
+      setShellStatus("ok", "Connected to Server");
       return;
     }
 
@@ -80,7 +80,7 @@ async function loadShoppingList() {
 
     if (!items.length) {
       renderEmpty();
-      setShellStatus("ok", "Connected to Supabase");
+      setShellStatus("ok", "Connected to Server");
       return;
     }
 
@@ -103,7 +103,7 @@ async function loadShoppingList() {
     applyPricing(buyRows, cheapestPrices);
 
     render(buyRows, coveredRows, reminderRows);
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
   } catch (error) {
     console.error(error);
     setShellStatus("error", "Database connection failed");

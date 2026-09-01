@@ -55,7 +55,7 @@ async function loadAll() {
     if (isAdmin() && els.add) els.add.style.display = "flex";
 
     renderGroups();
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
   } catch (error) {
     console.error(error);
     setShellStatus("error", "Database connection failed");

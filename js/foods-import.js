@@ -148,9 +148,9 @@ function renderResults(results) {
 
   if (uid !== ADMIN_USER_ID) {
     renderDenied();
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
     return;
   }
 
-  setShellStatus("ok", "Connected to Supabase");
+  setShellStatus("ok", "Connected to Server");
 })();

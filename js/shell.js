@@ -19,18 +19,16 @@ const NAV_ITEMS = [
   { href: "recipes.html", icon: "recipes", label: "Recipes" },
   { href: "foods.html", icon: "foods", label: "Foods" },
   { href: "pantry.html", icon: "pantry", label: "Pantry" },
-  { href: "shopping.html", icon: "shopping", label: "Shopping" },
-  { href: "deal-check.html", icon: "deal", label: "Deal Checker" }
+  { href: "shopping.html", icon: "shopping", label: "Shopping" }
 ];
 
 const NAV_ICON_SVGS = {
   dashboard: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>`,
   mealplans: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>`,
   recipes: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c2-1 5-1 7 0v14c-2-1-5-1-7 0V5Z"/><path d="M21 5c-2-1-5-1-7 0v14c2-1 5-1 7 0V5Z"/></svg>`,
-  foods: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M9 6v12M15 6v12M3 12h18"/></svg>`,
+  foods: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9h10a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z"/><path d="M5 10 2 8v8l3-2"/><path d="M19 10l3-2v8l-3-2"/></svg>`,
   pantry: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 12h16"/><path d="M8 3v9M16 3v9"/></svg>`,
-  shopping: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-1.5 10a2 2 0 0 1-2 1.7H8.5a2 2 0 0 1-2-1.7L5 9Z"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg>`,
-  deal: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 12.6 12 21l-9-9V4h8l9.4 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/></svg>`
+  shopping: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-1.5 10a2 2 0 0 1-2 1.7H8.5a2 2 0 0 1-2-1.7L5 9Z"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg>`
 };
 
 const LOGO_SVG = `<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -60,10 +58,7 @@ function buildShellStructure() {
   document.body.innerHTML = `
     <div class="mobile-topbar">
       <a href="dashboard.html" class="sidebar-logo">${LOGO_SVG}<span class="sidebar-logo-text">Savour</span></a>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button class="theme-toggle-btn sidebar-collapse-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">${themeToggleIcon()}</button>
-        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
-      </div>
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
     </div>
 
     <div class="mobile-menu-popup" id="mobileMenuPopup" onclick="if(event.target===this)toggleMobileMenu()">
@@ -78,12 +73,9 @@ function buildShellStructure() {
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-top-row">
           <a href="dashboard.html" class="sidebar-logo">${LOGO_SVG}<span class="sidebar-logo-text">Savour</span></a>
-          <div class="sidebar-top-btns">
-            <button class="theme-toggle-btn sidebar-collapse-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">${themeToggleIcon()}</button>
-            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" aria-label="Collapse menu" title="Collapse menu">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
-            </button>
-          </div>
+          <button class="sidebar-collapse-btn" onclick="toggleSidebar()" aria-label="Collapse menu" title="Collapse menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
         </div>
         <nav class="sidebar-nav">${navLinksHtml()}</nav>
         <div id="adminSlot"></div>
@@ -125,25 +117,41 @@ function currentTheme() {
   return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
-function themeToggleIcon() {
-  // Icon shown is what clicking will switch TO.
-  return currentTheme() === "dark"
-    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`
-    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
+// ---------- Theme preference: 'light' | 'dark' | 'system' ----------
+// The flash-prevention script in every page's <head> applies this at load
+// time already; these are the shared functions Settings uses to actually
+// change it, plus a live listener so 'system' mode follows the OS in real
+// time without needing a refresh.
+
+function getStoredThemePref() {
+  return localStorage.getItem("savour_theme") || "system";
 }
 
-function toggleTheme() {
-  const next = currentTheme() === "dark" ? "light" : "dark";
-  if (next === "dark") document.documentElement.setAttribute("data-theme", "dark");
+function systemPrefersDark() {
+  return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+}
+
+function applyThemePref(pref) {
+  const effectiveDark = pref === "dark" || (pref === "system" && systemPrefersDark());
+  if (effectiveDark) document.documentElement.setAttribute("data-theme", "dark");
   else document.documentElement.removeAttribute("data-theme");
-  localStorage.setItem("savour_theme", next);
-  document.querySelectorAll(".theme-toggle-btn").forEach(btn => { btn.innerHTML = themeToggleIcon(); });
 }
 
-function initials(name, email) {
-  if (name && name.trim()) {
-    return name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join("");
-  }
+function setThemePref(pref) {
+  localStorage.setItem("savour_theme", pref);
+  applyThemePref(pref);
+}
+
+if (window.matchMedia) {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (getStoredThemePref() === "system") applyThemePref("system");
+  });
+}
+
+function initials(firstName, lastName, email) {
+  const first = (firstName || "").trim();
+  const last = (lastName || "").trim();
+  if (first || last) return ((first[0] || "") + (last[0] || "")).toUpperCase() || first[0]?.toUpperCase() || "?";
   return (email || "?")[0].toUpperCase();
 }
 
@@ -151,17 +159,34 @@ async function loadProfileIntoShell() {
   const { data: { user } } = await supabaseClient.auth.getUser();
   let profile = null;
   try {
-    const rows = await supabaseRequest("profiles", { query: `?select=display_name,avatar_url,account_type&id=eq.${window.currentUserId}&limit=1` });
+    const rows = await supabaseRequest("profiles", { query: `?select=first_name,last_name,avatar_url,account_type&id=eq.${window.currentUserId}&limit=1` });
     profile = rows[0] || null;
+
+    if (!profile) {
+      // First time this account has ever loaded the app (e.g. straight after
+      // confirming their email) — create the profile row now, pulling the
+      // name from what they entered at signup.
+      const meta = user?.user_metadata || {};
+      const newProfile = {
+        id: window.currentUserId,
+        first_name: meta.first_name || null,
+        last_name: meta.last_name || null,
+        account_type: "Free"
+      };
+      await supabaseRequest("profiles", { method: "POST", body: newProfile });
+      profile = newProfile;
+    }
   } catch (error) {
     console.error(error);
   }
 
-  const name = profile?.display_name || (user?.email ? user.email.split("@")[0] : "Account");
+  const firstName = profile?.first_name || "";
+  const lastName = profile?.last_name || "";
+  const name = firstName ? `${firstName}${lastName ? " " + lastName : ""}` : (user?.email ? user.email.split("@")[0] : "Account");
   const plan = profile?.account_type || "Free";
   const avatarInner = profile?.avatar_url
-    ? `<img src="${profile.avatar_url}" alt="" onerror="this.parentElement.textContent='${initials(profile?.display_name, user?.email)}'">`
-    : initials(profile?.display_name, user?.email);
+    ? `<img src="${profile.avatar_url}" alt="" onerror="this.parentElement.textContent='${initials(firstName, lastName, user?.email)}'">`
+    : initials(firstName, lastName, user?.email);
 
   const profileHtml = `
     <button class="sidebar-profile-btn" onclick="window.location.href='settings.html'">
@@ -178,9 +203,9 @@ async function loadProfileIntoShell() {
   const extraLinks = [`<a href="ingredients.html" class="sidebar-extra-link">Ingredients</a>`];
   if (window.currentUserId === ADMIN_USER_ID) {
     extraLinks.push(
-      `<a href="recipes-import.html" class="sidebar-extra-link">⬆ Import recipes</a>`,
-      `<a href="foods-import.html" class="sidebar-extra-link">⬆ Import foods</a>`,
-      `<a href="prices.html" class="sidebar-extra-link">📊 All prices</a>`
+      `<a href="recipes-import.html" class="sidebar-extra-link">Import recipes</a>`,
+      `<a href="foods-import.html" class="sidebar-extra-link">Import foods</a>`,
+      `<a href="prices.html" class="sidebar-extra-link">All prices</a>`
     );
   }
   const extrasHtml = `<div class="sidebar-admin-label">More</div>${extraLinks.join("")}`;
@@ -203,5 +228,5 @@ function setShellStatus(state, text) {
   const uid = await window.authReady;
   if (!uid) return;
   await loadProfileIntoShell();
-  setShellStatus("ok", "Connected to Supabase");
+  setShellStatus("ok", "Connected to Server");
 })();

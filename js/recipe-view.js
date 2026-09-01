@@ -16,7 +16,7 @@ async function load() {
   const id = getRecipeId();
   if (!id) {
     document.getElementById("content").innerHTML = `<div class="empty-state">No recipe specified.</div>`;
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
     return;
   }
 
@@ -28,7 +28,7 @@ async function load() {
 
     if (!rows.length) {
       document.getElementById("content").innerHTML = `<div class="empty-state">Recipe not found, or you don't have access to it.</div>`;
-      setShellStatus("ok", "Connected to Supabase");
+      setShellStatus("ok", "Connected to Server");
       return;
     }
 
@@ -57,7 +57,7 @@ async function load() {
     }
 
     render();
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
   } catch (error) {
     console.error(error);
     setShellStatus("error", "Database connection failed");

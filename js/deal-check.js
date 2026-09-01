@@ -253,7 +253,7 @@ async function logThisPrice(verdictKey) {
     setShellStatus(undefined, "Loading…");
     await loadLookups();
     renderPickOptions();
-    setShellStatus("ok", "Connected to Supabase");
+    setShellStatus("ok", "Connected to Server");
   } catch (error) {
     console.error(error);
     setShellStatus("error", "Database connection failed");
