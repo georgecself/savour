@@ -185,6 +185,7 @@ let addType = "recipe";
 let addCookMode = "fresh"; // "fresh" | "leftover" — recipes only
 let pendingAddSelection = null; // { id, name, sub } once picked, before confirming
 let pendingEligibleBatches = []; // fetched live, across ALL weeks, once a recipe is picked
+let pendingRecipeFromLink = null; // recipe id passed in via ?addRecipe= from the recipe view page
 
 // Mark-as-cooked/eaten modal state
 let pendingMarkItemId = null;
@@ -477,14 +478,45 @@ function itemThumbPlaceholder() {
 
 // ---------- Add-item modal (pick first, THEN details, THEN confirm) ----------
 
+function showPendingRecipeBanner(name) {
+  const grid = document.getElementById("weekGrid");
+  let banner = document.getElementById("pendingRecipeBanner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "pendingRecipeBanner";
+    banner.className = "card";
+    banner.style.cssText = "padding:14px 18px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; background:var(--accent-soft); border-color:var(--accent-soft); flex-wrap:wrap;";
+    grid.parentElement.insertBefore(banner, grid);
+  }
+  banner.innerHTML = `
+    <span style="color:var(--accent-dark); font-size:14px;">Click <strong>+ Add</strong> on the day you'd like to add "<strong>${esc(name)}</strong>" to.</span>
+    <button class="btn" style="border-radius:999px;" onclick="dismissPendingRecipeBanner()">Dismiss</button>
+  `;
+}
+
+function dismissPendingRecipeBanner() {
+  pendingRecipeFromLink = null;
+  const banner = document.getElementById("pendingRecipeBanner");
+  if (banner) banner.remove();
+}
+
 function openAddModal(iso, dayName) {
   addModalIso = iso;
   addModalDayName = dayName;
   addType = "recipe";
   addCookMode = "fresh";
   pendingAddSelection = null;
-  renderAddModal();
   document.getElementById("modalBackdrop").classList.add("open");
+
+  if (pendingRecipeFromLink && data.recipes.some(r => r.id === pendingRecipeFromLink)) {
+    const recipeId = pendingRecipeFromLink;
+    pendingRecipeFromLink = null; // only auto-fill once
+    dismissPendingRecipeBanner();
+    selectAddItem(recipeId); // reuses exactly the same logic as picking it from search
+  } else {
+    pendingRecipeFromLink = null;
+    renderAddModal();
+  }
 }
 
 async function fetchEligibleBatches(recipeId, uptoIso) {
@@ -1141,12 +1173,22 @@ function downloadWeekAsPdf() {
 (async function init() {
   const uid = await window.authReady;
   if (!uid) return; // redirecting to login
-  const weekParam = new URLSearchParams(window.location.search).get("week");
+  const params = new URLSearchParams(window.location.search);
+  const weekParam = params.get("week");
   if (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) {
     const [y, m, d] = weekParam.split("-").map(Number);
     viewedMonday = getMondayOf(new Date(y, m - 1, d));
   }
   await loadAll();
+
+  const addRecipeParam = params.get("addRecipe");
+  if (addRecipeParam) {
+    const recipe = data.recipes.find(r => r.id === addRecipeParam);
+    if (recipe) {
+      pendingRecipeFromLink = addRecipeParam;
+      showPendingRecipeBanner(recipe.name);
+    }
+  }
 })();
 </script>
 </body>
