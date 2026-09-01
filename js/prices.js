@@ -1,5 +1,3 @@
-const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
-
 const state = {
   ingredients: [],
   foods: [],
@@ -14,29 +12,31 @@ const els = {
   search: document.getElementById("searchInput"),
   modal: document.getElementById("modal"),
   modalBackdrop: document.getElementById("modalBackdrop"),
-  add: document.getElementById("addPriceBtn"),
-  status: document.getElementById("status")
+  add: document.getElementById("addPriceBtn")
 };
 
-function setStatus(message) {
-  els.status.textContent = message;
-}
+const isAdmin = () => window.currentUserId === ADMIN_USER_ID;
 
 function fmtMoney(n) {
   return "£" + Number(n).toFixed(2);
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 // ---------- Loading ----------
 
 async function loadAll() {
   try {
-    setStatus("Loading prices…");
+    setShellStatus(undefined, "Loading…");
 
     const [ingredients, foods, prices] = await Promise.all([
       supabaseRequest("ingredients", { query: "?select=id,name,default_unit&order=name.asc" }),
       supabaseRequest("foods", { query: `?select=id,name,serving_unit&user_id=eq.${window.currentUserId}&order=name.asc` }),
       supabaseRequest("product_prices", {
-        query: "?select=id,ingredient_id,food_id,store,brand,product_name,pack_size,pack_unit,price,unit_price,is_deal,deal_ends_on,logged_by,ingredients(name),foods(name)&order=unit_price.asc"
+        query: "?select=id,ingredient_id,food_id,store,brand,product_name,pack_size,pack_unit,price,unit_price,is_deal,deal_ends_on,logged_by,created_at,ingredients(name),foods(name)&order=unit_price.asc"
       })
     ]);
 
@@ -49,14 +49,16 @@ async function loadAll() {
       itemKey: p.ingredient_id || p.food_id,
       store: p.store, brand: p.brand, productName: p.product_name,
       packSize: p.pack_size, packUnit: p.pack_unit, price: p.price, unitPrice: p.unit_price,
-      isDeal: p.is_deal, dealEndsOn: p.deal_ends_on, loggedBy: p.logged_by
+      isDeal: p.is_deal, dealEndsOn: p.deal_ends_on, loggedBy: p.logged_by, createdAt: p.created_at
     }));
 
+    if (isAdmin() && els.add) els.add.style.display = "flex";
+
     renderGroups();
-    setStatus(`${state.prices.length} price${state.prices.length === 1 ? "" : "s"} logged`);
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setStatus("Connection failed");
+    setShellStatus("error", "Database connection failed");
     els.groups.innerHTML = `<div class="empty-state">Couldn't load prices. Check the browser console for details.</div>`;
   }
 }
@@ -70,7 +72,7 @@ function renderGroups() {
   );
 
   if (!filtered.length) {
-    els.groups.innerHTML = `<div class="empty-state">${term ? "No matches." : "No prices logged yet — add the first one."}</div>`;
+    els.groups.innerHTML = `<div class="empty-state">${term ? "No matches." : "No prices logged yet."}</div>`;
     return;
   }
 
@@ -81,6 +83,7 @@ function renderGroups() {
   });
 
   const sortedGroupKeys = Object.keys(groups).sort((a, b) => groups[a].name.localeCompare(groups[b].name));
+  const admin = isAdmin();
 
   els.groups.innerHTML = sortedGroupKeys.map(key => {
     const group = groups[key];
@@ -93,12 +96,10 @@ function renderGroups() {
         <div class="card price-card">
           <table class="price-table">
             <thead>
-              <tr><th>Store</th><th>Product</th><th>Pack</th><th>Price</th><th>Per unit</th><th></th></tr>
+              <tr><th>Store</th><th>Product</th><th>Pack</th><th>Price</th><th>Per unit</th><th>Logged on</th>${admin ? "<th></th>" : ""}</tr>
             </thead>
             <tbody>
               ${rows.map(r => {
-                const isMine = r.loggedBy === window.currentUserId;
-                const canEdit = isMine || window.currentUserId === ADMIN_USER_ID;
                 const dealActive = r.isDeal && (!r.dealEndsOn || r.dealEndsOn >= todayIso());
                 return `
                 <tr class="${r.id === cheapestId ? "best" : ""}">
@@ -110,14 +111,19 @@ function renderGroups() {
                     ${r.id === cheapestId ? `<span class="best-badge">Best value</span>` : ""}
                     ${dealActive ? `<span class="deal-badge">Deal</span>` : ""}
                   </td>
-                  <td>
-                    ${canEdit ? `
-                      <div class="actions">
-                        <button class="btn" onclick="openEditPrice('${r.id}')">Edit</button>
-                        <button class="btn danger" onclick="deletePrice('${r.id}')">Delete</button>
+                  <td class="logged-date">${fmtDate(r.createdAt)}</td>
+                  ${admin ? `
+                    <td>
+                      <div class="row-actions">
+                        <button class="row-icon-btn" onclick="openEditPrice('${r.id}')" title="Edit" aria-label="Edit">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        </button>
+                        <button class="row-icon-btn danger" onclick="deletePrice('${r.id}')" title="Delete" aria-label="Delete">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>
+                        </button>
                       </div>
-                    ` : ""}
-                  </td>
+                    </td>
+                  ` : ""}
                 </tr>
               `;
               }).join("")}
@@ -134,7 +140,7 @@ function todayIso() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// ---------- Add flow: pick item, THEN price details, THEN confirm ----------
+// ---------- Add flow (admin only — button is hidden otherwise, and RLS blocks the write regardless) ----------
 
 function openAddPrice() {
   state.editingId = null;
@@ -150,8 +156,8 @@ function renderAddModal() {
       <h2>Log a price</h2>
       <p class="meta">Pick what this price is for — you'll enter the details next.</p>
       <div class="type-toggle">
-        <button type="button" class="type-btn ${state.addType === "ingredient" ? "active" : ""}" onclick="switchAddType('ingredient')">🥕 Ingredient</button>
-        <button type="button" class="type-btn ${state.addType === "food" ? "active" : ""}" onclick="switchAddType('food')">🥫 Food</button>
+        <button type="button" class="type-btn ${state.addType === "ingredient" ? "active" : ""}" onclick="switchAddType('ingredient')">Ingredient</button>
+        <button type="button" class="type-btn ${state.addType === "food" ? "active" : ""}" onclick="switchAddType('food')">Food</button>
       </div>
       <div class="field">
         <label>Search</label>
@@ -166,7 +172,7 @@ function renderAddModal() {
     els.modal.innerHTML = `
       <h2>Log a price</h2>
       <div class="selection-banner">
-        <span>${state.addType === "ingredient" ? "🥕" : "🥫"} ${esc(sel.name)}</span>
+        <span>${esc(sel.name)}</span>
         <button onclick="backToPicker()">Change</button>
       </div>
 
@@ -191,7 +197,7 @@ function renderAddModal() {
 
       <div class="modal-actions">
         <button class="btn" onclick="backToPicker()">Back</button>
-        <button class="btn primary" onclick="confirmSavePrice()">Save price</button>
+        <button class="btn primary" style="border-radius:999px;" onclick="confirmSavePrice()">Save price</button>
       </div>
     `;
   }
@@ -268,7 +274,7 @@ async function confirmSavePrice() {
   }
 }
 
-// ---------- Edit / delete ----------
+// ---------- Edit / delete (admin only) ----------
 
 function openEditPrice(id) {
   const p = state.prices.find(x => x.id === id);
@@ -277,7 +283,7 @@ function openEditPrice(id) {
 
   els.modal.innerHTML = `
     <h2>Edit price</h2>
-    <div class="selection-banner"><span>${p.ingredientId ? "🥕" : "🥫"} ${esc(p.itemName)}</span></div>
+    <div class="selection-banner"><span>${esc(p.itemName)}</span></div>
 
     <div class="form-grid">
       <div class="field"><label>Store</label><input id="pStore" value="${esc(p.store)}"></div>
@@ -299,7 +305,7 @@ function openEditPrice(id) {
 
     <div class="modal-actions">
       <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn primary" onclick="saveEditPrice('${id}')">Save</button>
+      <button class="btn primary" style="border-radius:999px;" onclick="saveEditPrice('${id}')">Save</button>
     </div>
   `;
   els.modalBackdrop.classList.add("open");
@@ -342,7 +348,7 @@ function closeModal() {
   els.modalBackdrop.classList.remove("open");
 }
 
-els.add.addEventListener("click", openAddPrice);
+if (els.add) els.add.addEventListener("click", openAddPrice);
 els.search.addEventListener("input", renderGroups);
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
