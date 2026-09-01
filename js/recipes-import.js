@@ -1,14 +1,16 @@
 let ingredients = [];
 let parsedRows = null;
-const ADMIN_USER_ID = "37926109-b428-45fc-8771-72e16390a649";
 
-function setStatus(message) {
-  document.getElementById("status").textContent = message;
-}
+const RESULT_ICONS = {
+  ok: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`,
+  fail: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>`
+};
 
 function renderDenied() {
   document.querySelector(".import-wrap").innerHTML = `
-    <a href="recipes.html" style="display:inline-block; margin-bottom:14px; color:var(--muted); font-size:13px; text-decoration:none;">← Back to recipes</a>
+    <a class="icon-btn" href="recipes.html" title="Back to recipes" aria-label="Back to recipes" style="margin-bottom:16px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </a>
     <div class="card import-card">
       <h2 style="margin-top:0;">Not available</h2>
       <p class="meta">Bulk import is restricted for now. Ask George if you've got a batch of recipes to add.</p>
@@ -68,6 +70,7 @@ function downloadTemplate() {
       cooking_time_minutes: 40,
       instructions: "Brown the mince in a large pan.\nAdd onion and garlic, cook until soft.\nStir in chopped tomatoes and simmer 20 minutes.\nServe over cooked spaghetti.",
       image_url: "",
+      category: "Dinner",
       ingredients: "500 | Beef mince | g\n1 | Onion | item\n2 | Garlic | clove\n400 | Chopped tomatoes | g\n300 | Spaghetti | g"
     }
   ]);
@@ -133,7 +136,8 @@ function validateRecipeRow(row, index) {
       servings: Number(row.servings) || 2,
       cooking_time_minutes: Number(row.cooking_time_minutes) || null,
       instructions: (row.instructions || "").trim() || null,
-      image_url: (row.image_url || "").trim() || null
+      image_url: (row.image_url || "").trim() || null,
+      category: (row.category || "").trim() || null
     },
     ingredientRows
   };
@@ -196,12 +200,12 @@ function renderResults(results) {
 
   document.getElementById("summaryBar").innerHTML = `
     <div class="summary-pill">${okCount} imported</div>
-    ${failCount ? `<div class="summary-pill" style="background:#fdf1f0; color:#c0392b;">${failCount} skipped</div>` : ""}
+    ${failCount ? `<div class="summary-pill fail">${failCount} skipped</div>` : ""}
   `;
 
   document.getElementById("resultsList").innerHTML = results.map(r => `
     <div class="result-row">
-      <span class="result-icon ${r.ok ? "result-ok" : "result-fail"}">${r.ok ? "✓" : "✗"}</span>
+      <span class="result-icon ${r.ok ? "result-ok" : "result-fail"}">${r.ok ? RESULT_ICONS.ok : RESULT_ICONS.fail}</span>
       <span><strong>${esc(r.name)}</strong> — ${esc(r.message)}</span>
     </div>
   `).join("");
@@ -215,15 +219,15 @@ function renderResults(results) {
 
   if (uid !== ADMIN_USER_ID) {
     renderDenied();
-    setStatus("Connected to Supabase");
+    setShellStatus("ok", "Connected to Supabase");
     return;
   }
 
   try {
     ingredients = await supabaseRequest("ingredients", { query: "?select=id,name,default_unit&order=name.asc" });
-    setStatus("Connected to Supabase");
+    setShellStatus("ok", "Connected to Supabase");
   } catch (error) {
     console.error(error);
-    setStatus("Database connection failed");
+    setShellStatus("error", "Database connection failed");
   }
 })();
