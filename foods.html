@@ -2,85 +2,123 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Foods</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
 <style>
   .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
-  .toolbar input { flex:1; max-width:320px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
-  .tab-row { display:flex; gap:8px; margin-bottom:18px; }
-  .tab-btn { border:1px solid var(--line); background:white; border-radius:999px; padding:8px 16px; cursor:pointer; font-size:13px; }
-  .tab-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
-  .table-card { padding:0; overflow-x:auto; }
-  .food-table { width:100%; border-collapse:collapse; min-width:860px; }
-  .food-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  .food-table td { padding:12px 14px; border-bottom:1px solid #f0f0ed; font-size:14px; white-space:nowrap; }
-  .food-table td.wrap { white-space:normal; }
-  .food-table .num { color:#5a5c56; }
-  .owner-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; }
-  .actions { display:flex; gap:7px; }
-  .empty-state { color:var(--muted); padding:30px; text-align:center; }
+  .toolbar input { flex:1; max-width:320px; }
 
-  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.38); align-items:center; justify-content:center; padding:20px; z-index:10; }
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; text-decoration:none; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+  .toolbar-row { display:flex; align-items:center; gap:10px; }
+  .action-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+  .food-tab-pill { display:flex; align-items:stretch; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .food-tab-pill button { border:0; background:transparent; color:var(--text); padding:9px 18px; cursor:pointer; font-size:13px; font-family:var(--font-body); position:relative; display:flex; align-items:center; gap:6px; }
+  .food-tab-pill button:not(:last-child)::after { content:""; position:absolute; right:0; top:22%; bottom:22%; width:1px; background:var(--line); }
+  .food-tab-pill button:hover { background:var(--surface-2); }
+  .food-tab-pill button.active { background:var(--accent-soft); color:var(--accent-dark); font-weight:600; }
+  .food-tab-pill svg { display:block; }
+
+  .food-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .food-card { position:relative; padding:16px 18px 18px; display:flex; flex-direction:column; transition:transform .12s ease, box-shadow .12s ease; }
+  .food-card:hover { transform:translateY(-2px); box-shadow:0 10px 22px rgba(20,16,10,.14); }
+  .food-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; }
+  .food-card h3 { margin:0 0 2px; font-size:16px; line-height:1.3; }
+  .food-brand { color:var(--muted); font-size:12px; }
+  .food-serving { color:var(--muted); font-size:12px; margin-top:6px; }
+
+  .food-stats { display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:12px 0; }
+  .food-stat { flex:1; text-align:center; padding:8px 4px; position:relative; }
+  .food-stat:not(:last-child)::after { content:""; position:absolute; right:0; top:15%; bottom:15%; width:1px; background:var(--line); }
+  .food-stat-value { display:block; font-family:var(--font-display); font-size:15px; font-weight:600; }
+  .food-stat-label { display:block; font-size:9px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-top:2px; }
+  .food-no-nutrition { font-size:12px; color:var(--muted); margin:12px 0; }
+
+  .food-price { font-weight:600; font-size:15px; margin-top:2px; }
+  .food-card-bottom { margin-top:auto; padding-top:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+  .owner-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent-dark); background:var(--accent-soft); padding:2px 7px; border-radius:999px; }
+  .category-badge { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--gold-dark); background:var(--gold-soft); padding:2px 7px; border-radius:999px; }
+  .badge-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .empty-state { color:var(--muted); padding:30px; text-align:center; grid-column:1/-1; }
+  .card-cta { border-radius:999px; font-size:13px; padding:8px 14px; }
+  .card-cta.added { background:var(--accent-soft); border-color:var(--accent-soft); color:var(--accent-dark); cursor:default; }
+
+  .item-menu-wrap { position:relative; }
+  .kebab-btn { width:28px; height:28px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .kebab-btn:hover { background:var(--surface-2); }
+  .item-menu { display:none; position:absolute; top:34px; right:0; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 18px rgba(20,16,10,.18); min-width:150px; padding:5px; z-index:5; }
+  .item-menu.open { display:block; }
+  .item-menu button { display:flex; align-items:center; gap:7px; width:100%; text-align:left; background:transparent; border:0; padding:8px 9px; border-radius:7px; font-size:13px; cursor:pointer; color:var(--text); }
+  .item-menu button:hover { background:var(--surface-2); }
+  .item-menu button.danger { color:var(--rust); }
+  .item-menu button.danger:hover { background:var(--rust-soft); }
+
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(43,38,32,.4); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
-  .modal { width:min(640px,100%); max-height:90vh; overflow:auto; background:white; border-radius:20px; padding:24px; }
+  .modal { width:min(640px,100%); max-height:90vh; overflow:auto; background:var(--surface); border-radius:20px; padding:24px; }
   .modal h2 { margin-top:0; }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .field { margin-bottom:13px; }
   .field.full { grid-column:1 / -1; }
   .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
-  .field input, .field select { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:white; box-sizing:border-box; }
+  .field input, .field select { width:100%; box-sizing:border-box; }
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
   .section-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:16px 0 8px; grid-column:1/-1; }
 
+  @media(max-width:1000px){ .food-grid{grid-template-columns:repeat(3,1fr)} }
+  @media(max-width:750px){ .food-grid{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:500px){ .food-grid{grid-template-columns:1fr} }
   @media(max-width:650px){ .form-grid{grid-template-columns:1fr} .field.full{grid-column:auto} }
 </style>
 </head>
 <body>
-<div class="app">
-<header>
-  <div class="brand">
-    <h1>Savour</h1>
-    <p>Plan your week. Know what to buy. Waste less.</p>
-  </div>
-  <nav class="nav">
-    <a href="index.html">📅 Week</a>
-    <a href="recipes.html">🍳 Recipes</a>
-    <a href="ingredients.html">🥕 Ingredients</a>
-    <a href="foods.html" class="active">🥫 Foods</a>
-    <a href="shopping.html">🛒 Shopping</a>
-    <a href="pantry.html">📦 Pantry</a>
-    <a href="deal-check.html">🎯 Deal Check</a>
-  </nav>
-</header>
 
-<main>
-<section id="foods" class="view active">
-  <div class="section-head">
-    <h2>Foods</h2>
-    <div style="display:flex; gap:8px;">
-      <a class="btn" href="foods-import.html" id="importLink" style="display:none;">⬆ Bulk import</a>
-      <button class="btn primary" id="addFoodBtn">＋ Add food</button>
-    </div>
-  </div>
-  <p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
-    Individual items you buy and eat as-is — protein bars, yoghurt, bananas — as opposed to recipe ingredients.
-  </p>
-  <div class="tab-row">
-    <button class="tab-btn active" id="tabMine" onclick="switchTab('mine')">My Foods</button>
-    <button class="tab-btn" id="tabLibrary" onclick="switchTab('library')">📚 Library</button>
-  </div>
-  <div class="toolbar">
-    <input id="searchInput" placeholder="Search foods…">
-  </div>
-  <div class="card table-card">
-    <div id="foodTable"></div>
-  </div>
-</section>
-</main>
+<div class="section-head">
+  <h2>Foods</h2>
 </div>
+<p class="meta" style="color:var(--muted); font-size:13px; margin-top:-8px; margin-bottom:16px;">
+  Individual items you buy and eat as-is — protein bars, yoghurt, bananas — as opposed to recipe ingredients.
+</p>
+<div class="action-row">
+  <div class="food-tab-pill">
+    <button class="active" id="tabMine" onclick="switchTab('mine')">My Foods</button>
+    <button id="tabLibrary" onclick="switchTab('library')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c2-1 5-1 7 0v14c-2-1-5-1-7 0V5Z"/><path d="M21 5c-2-1-5-1-7 0v14c2-1 5-1 7 0V5Z"/></svg>
+      Library
+    </button>
+  </div>
+  <div class="toolbar-row">
+    <a class="icon-btn" href="foods-import.html" id="importLink" style="display:none;" title="Bulk import" aria-label="Bulk import">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>
+    </a>
+    <button class="icon-btn" id="addAllBtn" onclick="addAllNewFoods()" style="display:none;" title="Add all new foods" aria-label="Add all new foods">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="10" height="10" rx="1.5"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+    </button>
+    <button class="icon-btn" id="createFoodBtn" onclick="openFoodModal()" title="Create new food" aria-label="Create new food">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+</div>
+<div class="toolbar">
+  <input id="searchInput" placeholder="Search foods…" oninput="renderFoods()">
+  <select id="categoryFilter" onchange="renderFoods()" style="max-width:180px;">
+    <option value="">All categories</option>
+  </select>
+</div>
+<div id="foodGrid" class="food-grid"></div>
 
-<div id="modalBackdrop" class="modal-backdrop">
+<div id="modalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <h2 id="modalTitle">Add food</h2>
 
@@ -144,17 +182,16 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn" id="cancelBtn">Cancel</button>
-      <button class="btn primary" id="saveBtn">Save food</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveFood()">Save food</button>
     </div>
   </div>
 </div>
 
-<div id="status" class="status">Connecting to Supabase…</div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/shell.js"></script>
 <script src="js/foods.js"></script>
 </body>
 </html>
