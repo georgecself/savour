@@ -23,7 +23,7 @@ function getAddedLibraryIds() {
   return new Set(state.myRecipes.map(r => r.clonedFrom).filter(Boolean));
 }
 
-const RECIPE_CATEGORIES = ["Breakfast", "Lunch", "Dinner", "Side", "Soup", "Salad", "Dessert", "Baking", "Snack", "Drink", "Sauce", "Other"];
+const RECIPE_CATEGORIES = ["Fish", "Soup", "Salad", "Pasta", "Dessert", "Baking", "Drink", "Sauce", "Other"];
 
 const ICONS = {
   edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,

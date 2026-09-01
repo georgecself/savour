@@ -44,7 +44,7 @@ async function handleSubmit() {
     if (mode === "signin") {
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      window.location.href = "index.html";
+      window.location.href = "dashboard.html";
     } else {
       const firstName = document.getElementById("authFirstName").value.trim();
       const lastName = document.getElementById("authLastName").value.trim();
@@ -67,7 +67,7 @@ async function handleSubmit() {
       if (error) throw error;
 
       if (data.session) {
-        window.location.href = "index.html";
+        window.location.href = "dashboard.html";
       } else {
         showMessage("Account created — check your email to confirm before signing in.", "success");
       }
@@ -83,7 +83,7 @@ async function handleSubmit() {
 // If already signed in, skip straight past the login page.
 (async function checkExistingSession() {
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (session) window.location.href = "index.html";
+  if (session) window.location.href = "dashboard.html";
 })();
 
 document.getElementById("authPassword").addEventListener("keydown", e => {
