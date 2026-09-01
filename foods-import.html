@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Bulk Import Foods</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
 <style>
   .import-wrap { max-width:720px; margin:0 auto; }
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; text-decoration:none; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+
   .card.import-card { padding:24px; margin-bottom:20px; }
   .field { margin-bottom:14px; }
   .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
@@ -18,46 +30,77 @@
   .file-name { font-size:13px; color:var(--accent-dark); margin-top:8px; }
 
   .results-list { margin-top:12px; }
-  .result-row { display:flex; align-items:flex-start; gap:8px; padding:9px 0; border-bottom:1px solid #f0f0ed; font-size:13px; }
+  .result-row { display:flex; align-items:flex-start; gap:9px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; }
   .result-row:last-child { border-bottom:0; }
-  .result-ok { color: #2e7d4f; }
-  .result-fail { color: #c0392b; }
+  .result-icon { flex-shrink:0; margin-top:2px; }
+  .result-ok { color: var(--success); }
+  .result-fail { color: var(--rust); }
   .summary-bar { display:flex; gap:12px; margin-bottom:10px; }
   .summary-pill { background:var(--accent-soft); color:var(--accent-dark); padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; }
-  code { background:#f0f0ed; padding:1px 5px; border-radius:5px; font-size:12px; }
+  .summary-pill.fail { background:var(--rust-soft); color:var(--rust-dark); }
+
+  code { background:var(--surface-2); border:1px solid var(--line); padding:1px 5px; border-radius:5px; font-size:12px; }
 </style>
 </head>
 <body>
-<div class="app">
-<header>
-  <div class="brand">
-    <h1>Savour</h1>
-    <p>Plan your week. Know what to buy. Waste less.</p>
+
+<div class="import-wrap">
+  <div style="margin-bottom:16px;">
+    <a class="icon-btn" href="foods.html" title="Back to foods" aria-label="Back to foods">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </a>
   </div>
-  <nav class="nav">
-    <a href="index.html">📅 Week</a>
-    <a href="recipes.html">🍳 Recipes</a>
-    <a href="ingredients.html">🥕 Ingredients</a>
-    <a href="foods.html" class="active">🥫 Foods</a>
-    <a href="shopping.html">🛒 Shopping</a>
-    <a href="pantry.html">📦 Pantry</a>
-    <a href="deal-check.html">🎯 Deal Check</a>
-  </nav>
-</header>
+  <h2>Bulk import foods</h2>
 
-<main>
-<div class="import-wrap" id="pageContent">
-  <!-- populated by JS after the admin check -->
-</div>
-</main>
-</div>
+  <div class="card import-card">
+    <p class="meta" style="color:var(--muted); font-size:13px;">Upload a CSV with one row per food.</p>
 
-<div id="status" class="status">Connecting to Supabase…</div>
+    <p style="margin-top:14px;">
+      <button class="btn" style="border-radius:999px;" onclick="downloadTemplate()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="M6 10l6 6 6-6"/><path d="M4 20h16"/></svg>
+        Download CSV template
+      </button>
+    </p>
+
+    <details style="margin-top:14px;">
+      <summary style="cursor:pointer; font-size:13px; color:var(--accent-dark);">Show expected columns</summary>
+      <p class="meta" style="font-size:13px; margin-top:10px;">
+        <code>name, brand, shopping_category, serving_size, serving_unit, calories, protein_g, carbohydrates_g, fat_g, price</code><br>
+        Only <code>name</code> is required — leave others blank if unknown. <code>shopping_category</code> is also used as the category badge/filter on the Foods page.
+      </p>
+    </details>
+  </div>
+
+  <div class="card import-card">
+    <div class="field">
+      <label>CSV file</label>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        Click to choose a file, or drop it here
+        <input type="file" id="fileInput" accept=".csv">
+      </div>
+      <div id="fileName" class="file-name"></div>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="publishCheckbox">
+      <label for="publishCheckbox">Publish this batch to the shared library (visible to everyone)</label>
+    </div>
+
+    <button class="btn primary" style="border-radius:999px;" id="importBtn" onclick="runImport()" disabled>Import foods</button>
+  </div>
+
+  <div class="card import-card" id="resultsCard" style="display:none;">
+    <h3 style="margin-top:0;">Results</h3>
+    <div id="summaryBar" class="summary-bar"></div>
+    <div id="resultsList" class="results-list"></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/shell.js"></script>
 <script src="js/foods-import.js"></script>
 </body>
 </html>

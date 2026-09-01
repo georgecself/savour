@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){
+  if (localStorage.getItem('savour_theme') === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Savour — Bulk Import Recipes</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
 <style>
   .import-wrap { max-width:720px; margin:0 auto; }
+  .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; text-decoration:none; }
+  .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
+
   .card.import-card { padding:24px; margin-bottom:20px; }
   .field { margin-bottom:14px; }
   .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
@@ -18,39 +30,27 @@
   .file-name { font-size:13px; color:var(--accent-dark); margin-top:8px; }
 
   .results-list { margin-top:12px; }
-  .result-row { display:flex; align-items:flex-start; gap:8px; padding:9px 0; border-bottom:1px solid #f0f0ed; font-size:13px; }
+  .result-row { display:flex; align-items:flex-start; gap:9px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; }
   .result-row:last-child { border-bottom:0; }
-  .result-icon { flex-shrink:0; }
-  .result-ok { color: #2e7d4f; }
-  .result-fail { color: #c0392b; }
+  .result-icon { flex-shrink:0; margin-top:2px; }
+  .result-ok { color: var(--success); }
+  .result-fail { color: var(--rust); }
   .summary-bar { display:flex; gap:12px; margin-bottom:10px; }
   .summary-pill { background:var(--accent-soft); color:var(--accent-dark); padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; }
+  .summary-pill.fail { background:var(--rust-soft); color:var(--rust-dark); }
 
-  code { background:#f0f0ed; padding:1px 5px; border-radius:5px; font-size:12px; }
-  pre.template-example { background:#f7f7f4; border:1px solid var(--line); border-radius:10px; padding:14px; font-size:12px; overflow-x:auto; }
+  code { background:var(--surface-2); border:1px solid var(--line); padding:1px 5px; border-radius:5px; font-size:12px; }
+  pre.template-example { background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:14px; font-size:12px; overflow-x:auto; }
 </style>
 </head>
 <body>
-<div class="app">
-<header>
-  <div class="brand">
-    <h1>Savour</h1>
-    <p>Plan your week. Know what to buy. Waste less.</p>
-  </div>
-  <nav class="nav">
-    <a href="index.html">📅 Week</a>
-    <a href="recipes.html" class="active">🍳 Recipes</a>
-    <a href="ingredients.html">🥕 Ingredients</a>
-    <a href="foods.html">🥫 Foods</a>
-    <a href="shopping.html">🛒 Shopping</a>
-    <a href="pantry.html">📦 Pantry</a>
-    <a href="deal-check.html">🎯 Deal Check</a>
-  </nav>
-</header>
 
-<main>
 <div class="import-wrap">
-  <a href="recipes.html" style="display:inline-block; margin-bottom:14px; color:var(--muted); font-size:13px; text-decoration:none;">← Back to recipes</a>
+  <div style="margin-bottom:16px;">
+    <a class="icon-btn" href="recipes.html" title="Back to recipes" aria-label="Back to recipes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </a>
+  </div>
   <h2>Bulk import recipes</h2>
 
   <div class="card import-card">
@@ -60,11 +60,16 @@
       skipped with a reason, so you can add the missing ingredient and re-import just that row.
     </p>
 
-    <p style="margin-top:14px;"><button class="btn" onclick="downloadTemplate()">⬇ Download CSV template</button></p>
+    <p style="margin-top:14px;">
+      <button class="btn" style="border-radius:999px;" onclick="downloadTemplate()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="M6 10l6 6 6-6"/><path d="M4 20h16"/></svg>
+        Download CSV template
+      </button>
+    </p>
 
     <details style="margin-top:14px;">
       <summary style="cursor:pointer; font-size:13px; color:var(--accent-dark);">Show expected format</summary>
-      <p class="meta" style="font-size:13px; margin-top:10px;">Columns: <code>name, description, servings, cooking_time_minutes, instructions, image_url, ingredients</code></p>
+      <p class="meta" style="font-size:13px; margin-top:10px;">Columns: <code>name, description, servings, cooking_time_minutes, instructions, image_url, category, ingredients</code></p>
       <p class="meta" style="font-size:13px;">The <code>instructions</code> cell holds one step per line. The <code>ingredients</code> cell holds one ingredient per line, formatted <code>quantity | ingredient name | unit</code> — e.g.:</p>
       <pre class="template-example">500 | Chicken breast | g
 1 | Onion | item
@@ -87,7 +92,7 @@
       <label for="publishCheckbox">Publish this batch to the shared library (visible to everyone)</label>
     </div>
 
-    <button class="btn primary" id="importBtn" onclick="runImport()" disabled>Import recipes</button>
+    <button class="btn primary" style="border-radius:999px;" id="importBtn" onclick="runImport()" disabled>Import recipes</button>
   </div>
 
   <div class="card import-card" id="resultsCard" style="display:none;">
@@ -96,15 +101,12 @@
     <div id="resultsList" class="results-list"></div>
   </div>
 </div>
-</main>
-</div>
-
-<div id="status" class="status">Connecting to Supabase…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/shell.js"></script>
 <script src="js/recipes-import.js"></script>
 </body>
 </html>
