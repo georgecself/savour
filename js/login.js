@@ -1,5 +1,37 @@
 let mode = "signin"; // or "signup"
 
+// Mirrors what's set on the Supabase project (uppercase, lowercase, digit,
+// min 6 chars) — checked live so people find out before submitting, not
+// just from a rejected signup.
+const PASSWORD_REQUIREMENTS = [
+  { label: "At least 6 characters", test: v => v.length >= 6 },
+  { label: "One uppercase letter", test: v => /[A-Z]/.test(v) },
+  { label: "One lowercase letter", test: v => /[a-z]/.test(v) },
+  { label: "One number", test: v => /[0-9]/.test(v) }
+];
+
+function renderPasswordChecklist(value, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = PASSWORD_REQUIREMENTS.map(r => {
+    const met = r.test(value);
+    return `<div class="req ${met ? "met" : ""}">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${met ? '<path d="M20 6L9 17l-5-5"/>' : '<circle cx="12" cy="12" r="9"/>'}</svg>
+      ${r.label}
+    </div>`;
+  }).join("");
+}
+
+function passwordMeetsAllRequirements(value) {
+  return PASSWORD_REQUIREMENTS.every(r => r.test(value));
+}
+
+function onAuthPasswordInput() {
+  if (mode === "signup") {
+    renderPasswordChecklist(document.getElementById("authPassword").value, "authPasswordChecklist");
+  }
+}
+
 function showMessage(text, type) {
   const box = document.getElementById("authMessage");
   box.className = `auth-message ${type}`;
@@ -17,6 +49,8 @@ function switchMode() {
   clearMessage();
 
   document.getElementById("nameFields").style.display = mode === "signup" ? "block" : "none";
+  document.getElementById("authPasswordChecklist").style.display = mode === "signup" ? "flex" : "none";
+  if (mode === "signup") renderPasswordChecklist(document.getElementById("authPassword").value, "authPasswordChecklist");
   document.getElementById("authSubtitle").textContent =
     mode === "signin" ? "Sign in to your account" : "Create an account";
   document.getElementById("authSubmitBtn").textContent =
@@ -51,6 +85,11 @@ async function handleSubmit() {
 
       if (!firstName) {
         showMessage("Please enter your first name.", "error");
+        btn.disabled = false;
+        return;
+      }
+      if (!passwordMeetsAllRequirements(password)) {
+        showMessage("Your password doesn't meet all the requirements yet — check the list under the field.", "error");
         btn.disabled = false;
         return;
       }
