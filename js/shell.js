@@ -19,7 +19,8 @@ const NAV_ITEMS = [
   { href: "recipes.html", icon: "recipes", label: "Recipes" },
   { href: "foods.html", icon: "foods", label: "Foods" },
   { href: "pantry.html", icon: "pantry", label: "Pantry" },
-  { href: "shopping.html", icon: "shopping", label: "Shopping" }
+  { href: "shopping.html", icon: "shopping", label: "Shopping" },
+  { href: "shop-mode.html", icon: "shopmode", label: "Shop Mode" }
 ];
 
 const NAV_ICON_SVGS = {
@@ -28,7 +29,8 @@ const NAV_ICON_SVGS = {
   recipes: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c2-1 5-1 7 0v14c-2-1-5-1-7 0V5Z"/><path d="M21 5c-2-1-5-1-7 0v14c2-1 5-1 7 0V5Z"/></svg>`,
   foods: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9h10a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z"/><path d="M5 10 2 8v8l3-2"/><path d="M19 10l3-2v8l-3-2"/></svg>`,
   pantry: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 12h16"/><path d="M8 3v9M16 3v9"/></svg>`,
-  shopping: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-1.5 10a2 2 0 0 1-2 1.7H8.5a2 2 0 0 1-2-1.7L5 9Z"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg>`
+  shopping: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-1.5 10a2 2 0 0 1-2 1.7H8.5a2 2 0 0 1-2-1.7L5 9Z"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg>`,
+  shopmode: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`
 };
 
 const LOGO_SVG = `<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
