@@ -30,56 +30,92 @@ function getWeekEnd(weekStart) {
 
 // ---------- Building the raw need, from this week's meal plan ----------
 
-async function loadIngredientContributions(recipeItems) {
-  if (!recipeItems.length) return [];
-
-  const recipeIds = [...new Set(recipeItems.map(i => i.recipe_id))];
-  const encoded = recipeIds.map(id => `"${id}"`).join(",");
-
-  const [recipeIngredients, recipes] = await Promise.all([
-    supabaseRequest("recipe_ingredients", {
-      query: `?select=recipe_id,ingredient_id,quantity,unit,ingredients(id,name,category,is_staple,grams_per_ml)&recipe_id=in.(${encoded})`
-    }),
-    supabaseRequest("recipes", { query: `?select=id,servings&id=in.(${encoded})` })
-  ]);
-
-  const servingsByRecipe = Object.fromEntries(recipes.map(r => [r.id, r.servings || 1]));
-
-  const byRecipe = {};
-  recipeIngredients.forEach(ri => {
-    if (!byRecipe[ri.recipe_id]) byRecipe[ri.recipe_id] = [];
-    byRecipe[ri.recipe_id].push(ri);
-  });
-
+async function loadIngredientContributions(recipeItems, directIngredientItems) {
   const aggregated = {}; // key = ingredientId::unit
 
-  recipeItems.forEach(mealItem => {
-    const baseServings = servingsByRecipe[mealItem.recipe_id] || 1;
-    const multiplier = (mealItem.portions_made || baseServings) / baseServings;
-    const rows = byRecipe[mealItem.recipe_id] || [];
-    rows.forEach(ri => {
-      if (!ri.ingredients) return; // ingredient may have been deleted
-      const unit = ri.unit || "";
-      const key = `${ri.ingredient_id}::${unit}`;
+  if (recipeItems.length) {
+    const recipeIds = [...new Set(recipeItems.map(i => i.recipe_id))];
+    const encoded = recipeIds.map(id => `"${id}"`).join(",");
+
+    const [recipeIngredients, recipes] = await Promise.all([
+      supabaseRequest("recipe_ingredients", {
+        query: `?select=recipe_id,ingredient_id,quantity,unit,ingredients(id,name,category,is_staple,grams_per_ml)&recipe_id=in.(${encoded})`
+      }),
+      supabaseRequest("recipes", { query: `?select=id,servings&id=in.(${encoded})` })
+    ]);
+
+    const servingsByRecipe = Object.fromEntries(recipes.map(r => [r.id, r.servings || 1]));
+
+    const byRecipe = {};
+    recipeIngredients.forEach(ri => {
+      if (!byRecipe[ri.recipe_id]) byRecipe[ri.recipe_id] = [];
+      byRecipe[ri.recipe_id].push(ri);
+    });
+
+    recipeItems.forEach(mealItem => {
+      const baseServings = servingsByRecipe[mealItem.recipe_id] || 1;
+      const multiplier = (mealItem.portions_made || baseServings) / baseServings;
+      const rows = byRecipe[mealItem.recipe_id] || [];
+      rows.forEach(ri => {
+        if (!ri.ingredients) return; // ingredient may have been deleted
+        const unit = ri.unit || "";
+        const key = `${ri.ingredient_id}::${unit}`;
+        if (!aggregated[key]) {
+          aggregated[key] = {
+            ingredientId: ri.ingredient_id,
+            label: ri.ingredients.name,
+            category: ri.ingredients.category || "Other",
+            unit,
+            qtySum: 0,
+            hasUnspecified: false,
+            isStaple: !!ri.ingredients.is_staple,
+            gramsPerMl: ri.ingredients.grams_per_ml || null
+          };
+        }
+        if (ri.quantity !== null && ri.quantity !== undefined) {
+          aggregated[key].qtySum += ri.quantity * multiplier;
+        } else {
+          aggregated[key].hasUnspecified = true;
+        }
+      });
+    });
+  }
+
+  // Essentials — ingredients added directly to the plan (day = null), not
+  // via a recipe. Folded into the same aggregation so a "500g flour"
+  // essential and a "500g flour" recipe need show up as one combined row.
+  if (directIngredientItems && directIngredientItems.length) {
+    const ingredientIds = [...new Set(directIngredientItems.map(i => i.ingredient_id))];
+    const encoded = ingredientIds.map(id => `"${id}"`).join(",");
+    const ingredients = await supabaseRequest("ingredients", {
+      query: `?select=id,name,category,is_staple,grams_per_ml&id=in.(${encoded})`
+    });
+    const ingredientsById = Object.fromEntries(ingredients.map(i => [i.id, i]));
+
+    directIngredientItems.forEach(raw => {
+      const ing = ingredientsById[raw.ingredient_id];
+      if (!ing) return;
+      const unit = raw.unit || "";
+      const key = `${raw.ingredient_id}::${unit}`;
       if (!aggregated[key]) {
         aggregated[key] = {
-          ingredientId: ri.ingredient_id,
-          label: ri.ingredients.name,
-          category: ri.ingredients.category || "Other",
+          ingredientId: raw.ingredient_id,
+          label: ing.name,
+          category: ing.category || "Other",
           unit,
           qtySum: 0,
           hasUnspecified: false,
-          isStaple: !!ri.ingredients.is_staple,
-          gramsPerMl: ri.ingredients.grams_per_ml || null
+          isStaple: !!ing.is_staple,
+          gramsPerMl: ing.grams_per_ml || null
         };
       }
-      if (ri.quantity !== null && ri.quantity !== undefined) {
-        aggregated[key].qtySum += ri.quantity * multiplier;
+      if (raw.quantity !== null && raw.quantity !== undefined) {
+        aggregated[key].qtySum += raw.quantity;
       } else {
         aggregated[key].hasUnspecified = true;
       }
     });
-  });
+  }
 
   return Object.values(aggregated);
 }
@@ -288,16 +324,17 @@ async function addItemsToPantry(items) {
 // This is the one call both pages make.
 async function computeShoppingList(mealPlanId) {
   const items = await supabaseRequest("meal_plan_items", {
-    query: `?select=day,meal_type,recipe_id,food_id,quantity,portions_made,leftover_of,pantry_applied_at&meal_plan_id=eq.${mealPlanId}`
+    query: `?select=day,meal_type,recipe_id,food_id,ingredient_id,quantity,unit,portions_made,leftover_of,pantry_applied_at&meal_plan_id=eq.${mealPlanId}`
   });
 
   if (!items.length) return { buyRows: [], coveredRows: [], reminderRows: [] };
 
   const recipeItems = items.filter(i => i.recipe_id && !i.leftover_of && !i.pantry_applied_at);
   const foodItems = items.filter(i => i.food_id && !i.pantry_applied_at);
+  const directIngredientItems = items.filter(i => i.ingredient_id && !i.pantry_applied_at);
 
   const [ingredientRows, foodRows, pantryItems, cheapestPrices] = await Promise.all([
-    loadIngredientContributions(recipeItems),
+    loadIngredientContributions(recipeItems, directIngredientItems),
     loadFoodContributions(foodItems),
     supabaseRequest("pantry_items", { query: `?select=ingredient_id,food_id,quantity,unit&user_id=eq.${window.currentUserId}` }),
     loadCheapestPrices()
