@@ -70,6 +70,7 @@ function downloadTemplate() {
       cooking_time_minutes: 40,
       instructions: "Brown the mince in a large pan.\nAdd onion and garlic, cook until soft.\nStir in chopped tomatoes and simmer 20 minutes.\nServe over cooked spaghetti.",
       image_url: "",
+      source_url: "https://www.bbcgoodfood.com/recipes/example-recipe",
       category: "Dinner",
       ingredients: "500 | Beef mince | g\n1 | Onion | item\n2 | Garlic | clove\n400 | Chopped tomatoes | g\n300 | Spaghetti | g"
     }
@@ -137,6 +138,7 @@ function validateRecipeRow(row, index) {
       cooking_time_minutes: Number(row.cooking_time_minutes) || null,
       instructions: (row.instructions || "").trim() || null,
       image_url: (row.image_url || "").trim() || null,
+      source_url: (row.source_url || "").trim() || null,
       category: (row.category || "").trim() || null
     },
     ingredientRows
