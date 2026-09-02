@@ -19,6 +19,8 @@
   .week-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; align-items:start; }
   .day { min-width:0; padding:14px; display:flex; flex-direction:column; }
   .day-head { padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:10px; }
+  .essentials-day .day-name { color:var(--accent-dark); }
+  .essentials-day { background:var(--accent-soft); border-color:var(--accent-soft); }
   .day-name { font-weight:700; }
   .day-date { font-size:12px; color:var(--muted); margin-top:2px; }
 
@@ -193,6 +195,7 @@ let pendingMarkRows = null; // [{ ingredientId|foodId, name, unit, suggestedQty 
 
 const dayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const tagOrder = ["Breakfast","Lunch","Dinner","Snack"];
+const ESSENTIALS_KEY = "essentials"; // data.week[ESSENTIALS_KEY] holds items with day = null
 
 function setDbStatus(message) {
   const state = message === "Connected to Server" ? "ok" : message === "Database connection failed" ? "error" : undefined;
@@ -251,20 +254,22 @@ async function loadAll() {
     setDbStatus("Loading…");
     const weekStart = getWeekDates()[0].iso;
 
-    const [recipes, foods, plans] = await Promise.all([
+    const [recipes, foods, ingredients, plans] = await Promise.all([
       supabaseRequest("recipes", { query: `?select=id,name,servings,cooking_time_minutes,image_url&user_id=eq.${window.currentUserId}&order=name.asc` }),
       supabaseRequest("foods", { query: `?select=id,name,brand,serving_unit,image_url&user_id=eq.${window.currentUserId}&order=name.asc` }),
+      supabaseRequest("ingredients", { query: "?select=id,name,default_unit&order=name.asc" }),
       supabaseRequest("meal_plans", { query: `?select=id&week_start=eq.${weekStart}&user_id=eq.${window.currentUserId}&limit=1` })
     ]);
 
     data.recipes = recipes;
     data.foods = foods;
+    data.ingredients = ingredients;
     currentMealPlanId = plans.length ? plans[0].id : null;
 
     let rawItems = [];
     if (currentMealPlanId) {
       rawItems = await supabaseRequest("meal_plan_items", {
-        query: `?select=id,day,meal_type,recipe_id,food_id,quantity,portions_made,portions_eaten,leftover_of,pantry_applied_at&meal_plan_id=eq.${currentMealPlanId}`
+        query: `?select=id,day,meal_type,recipe_id,food_id,ingredient_id,quantity,unit,portions_made,portions_eaten,leftover_of,pantry_applied_at&meal_plan_id=eq.${currentMealPlanId}`
       });
     }
 
@@ -293,11 +298,20 @@ async function loadAll() {
           sub: food ? (food.brand || food.serving_unit || "") : "",
           pantryAppliedAt: raw.pantry_applied_at
         };
+      } else if (raw.ingredient_id) {
+        const ingredient = data.ingredients.find(i => i.id === raw.ingredient_id);
+        item = {
+          id: raw.id, tag: raw.meal_type, type: "ingredient", refId: raw.ingredient_id,
+          quantity: raw.quantity, unit: raw.unit,
+          name: ingredient ? ingredient.name : "(deleted ingredient)",
+          imageUrl: "", sub: ""
+        };
       } else {
         return;
       }
-      if (!data.week[raw.day]) data.week[raw.day] = [];
-      data.week[raw.day].push(item);
+      const dayKey = raw.day === null ? ESSENTIALS_KEY : raw.day;
+      if (!data.week[dayKey]) data.week[dayKey] = [];
+      data.week[dayKey].push(item);
     });
 
     await attachPortionsRemaining();
@@ -342,7 +356,7 @@ function renderWeek() {
   const weekDates = getWeekDates();
   const isoToDay = Object.fromEntries(weekDates.map(d => [d.iso, d.dayName]));
 
-  document.getElementById("weekGrid").innerHTML = weekDates.map(({ dayName, iso, display }) => {
+  const dayCards = weekDates.map(({ dayName, iso, display }) => {
     const items = sortItems(data.week[iso] || []);
     return `<div class="card day">
       <div class="day-head"><div class="day-name">${dayName}</div><div class="day-date">${display}</div></div>
@@ -350,6 +364,15 @@ function renderWeek() {
       <button class="add-day-btn" onclick="openAddModal('${iso}','${dayName}')">＋ Add</button>
     </div>`;
   }).join("");
+
+  const essentialItems = data.week[ESSENTIALS_KEY] || [];
+  const essentialsCard = `<div class="card day essentials-day">
+    <div class="day-head"><div class="day-name">Essentials</div><div class="day-date">Not tied to a day</div></div>
+    ${essentialItems.length ? essentialItems.map(item => renderEssentialItemRow(item)).join("") : `<div class="no-items">Nothing added yet.</div>`}
+    <button class="add-day-btn" onclick="openEssentialsAddModal()">＋ Add</button>
+  </div>`;
+
+  document.getElementById("weekGrid").innerHTML = dayCards + essentialsCard;
 }
 
 function updateWeekHeading() {
@@ -468,6 +491,195 @@ function closeAllItemMenus() {
 }
 
 document.addEventListener("click", closeAllItemMenus);
+
+// ---------- Essentials (8th "day", not tied to a specific date) ----------
+// Deliberately its own simpler set of functions rather than reusing the
+// recipe/food add flow — there's no tag, no cook mode, no portions math
+// here, just "pick an ingredient or food, say how much."
+
+let essentialsAddType = "ingredient";
+let essentialsPendingSelection = null;
+
+function renderEssentialItemRow(item) {
+  const qtyLabel = item.quantity !== null && item.quantity !== undefined
+    ? `${esc(String(item.quantity))}${item.unit ? " " + esc(item.unit) : ""}`
+    : "";
+  return `
+    <div class="item-row">
+      ${itemThumbPlaceholder()}
+      <div class="item-main">
+        <div class="item-name">${esc(item.name)}${qtyLabel ? " — " + qtyLabel : ""}</div>
+      </div>
+      <div class="item-menu-wrap" onclick="event.stopPropagation()">
+        <button class="kebab-btn" onclick="toggleItemMenu(event,'${item.id}')" aria-label="Options">⋮</button>
+        <div class="item-menu" id="menu-${item.id}">
+          <button onclick="closeAllItemMenus(); openEditEssentialModal('${item.id}')">${MENU_ICONS.edit} Edit</button>
+          <button class="danger" onclick="closeAllItemMenus(); removeItem('${item.id}')">${MENU_ICONS.remove} Remove</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openEssentialsAddModal() {
+  essentialsAddType = "ingredient";
+  essentialsPendingSelection = null;
+  renderEssentialsAddModal();
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function renderEssentialsAddModal() {
+  if (!essentialsPendingSelection) {
+    document.getElementById("modal").innerHTML = `
+      <h2>Add an essential</h2>
+      <p class="meta">For everyday items that aren't tied to a specific day — nappies, bin bags, milk you'll top up mid-week, that sort of thing.</p>
+      <div class="type-toggle">
+        <button type="button" class="type-btn ${essentialsAddType === "ingredient" ? "active" : ""}" onclick="switchEssentialsType('ingredient')">Ingredient</button>
+        <button type="button" class="type-btn ${essentialsAddType === "food" ? "active" : ""}" onclick="switchEssentialsType('food')">Food</button>
+      </div>
+      <div class="field">
+        <label>Search</label>
+        <input id="essSearch" placeholder="Type to search…" oninput="renderEssentialsOptions()">
+      </div>
+      <div id="essOptions" class="add-options"></div>
+      <div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button></div>
+    `;
+    renderEssentialsOptions();
+  } else {
+    const sel = essentialsPendingSelection;
+    document.getElementById("modal").innerHTML = `
+      <h2>Add an essential</h2>
+      <div class="selection-banner">
+        <span>${esc(sel.name)}</span>
+        <button onclick="essentialsBackToPicker()">Change</button>
+      </div>
+      <div class="tag-quantity-row">
+        <div class="field"><label>Quantity</label><input id="essQty" type="number" step="any" min="0" value="1"></div>
+        <div class="field"><label>Unit</label><input id="essUnit" value="${esc(sel.defaultUnit || "")}" placeholder="${essentialsAddType === "food" ? "optional" : "e.g. g"}"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="essentialsBackToPicker()">Back</button>
+        <button class="btn primary" onclick="confirmEssentialsAdd()">Add</button>
+      </div>
+    `;
+  }
+}
+
+function switchEssentialsType(type) {
+  essentialsAddType = type;
+  essentialsPendingSelection = null;
+  renderEssentialsAddModal();
+}
+
+function renderEssentialsOptions() {
+  const term = document.getElementById("essSearch").value.trim().toLowerCase();
+  const source = essentialsAddType === "ingredient" ? data.ingredients : data.foods;
+  const filtered = source.filter(x => x.name.toLowerCase().includes(term));
+  const box = document.getElementById("essOptions");
+
+  if (!filtered.length) {
+    box.innerHTML = `<div class="empty-state">${source.length ? "No matches." : `No ${essentialsAddType}s yet.`}</div>`;
+    return;
+  }
+
+  box.innerHTML = filtered.map(x => `
+    <div class="add-option" onclick="selectEssentialsItem('${x.id}')">
+      <div>${esc(x.name)}</div>
+      <div class="sub">${essentialsAddType === "food" ? esc(x.brand || x.serving_unit || "") : esc(x.default_unit || "")}</div>
+    </div>
+  `).join("");
+}
+
+function selectEssentialsItem(refId) {
+  const source = essentialsAddType === "ingredient" ? data.ingredients : data.foods;
+  const item = source.find(x => x.id === refId);
+  if (!item) return;
+
+  essentialsPendingSelection = {
+    id: item.id,
+    name: item.name,
+    defaultUnit: essentialsAddType === "ingredient" ? item.default_unit : item.serving_unit
+  };
+  renderEssentialsAddModal();
+}
+
+function essentialsBackToPicker() {
+  essentialsPendingSelection = null;
+  renderEssentialsAddModal();
+}
+
+async function confirmEssentialsAdd() {
+  const sel = essentialsPendingSelection;
+  const qtyRaw = document.getElementById("essQty").value;
+  const quantity = qtyRaw === "" ? null : Number(qtyRaw);
+  const unit = document.getElementById("essUnit").value.trim() || null;
+
+  const body = { meal_plan_id: currentMealPlanId, day: null, meal_type: null, quantity, unit };
+  if (essentialsAddType === "ingredient") body.ingredient_id = sel.id; else body.food_id = sel.id;
+
+  try {
+    if (!currentMealPlanId) {
+      const created = (await supabaseRequest("meal_plans", {
+        method: "POST", body: { week_start: getWeekDates()[0].iso, user_id: window.currentUserId }
+      }))[0];
+      currentMealPlanId = created.id;
+      body.meal_plan_id = currentMealPlanId;
+    }
+
+    const createdItem = (await supabaseRequest("meal_plan_items", { method: "POST", body }))[0];
+
+    const localItem = {
+      id: createdItem.id, tag: null, type: essentialsAddType, refId: sel.id,
+      name: sel.name, quantity, unit, imageUrl: "", sub: ""
+    };
+    if (!data.week[ESSENTIALS_KEY]) data.week[ESSENTIALS_KEY] = [];
+    data.week[ESSENTIALS_KEY].push(localItem);
+
+    closeModal();
+    renderWeek();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't add that. Check the browser console for details.");
+  }
+}
+
+function openEditEssentialModal(itemId) {
+  const item = findItemById(itemId);
+  if (!item) return;
+
+  document.getElementById("modal").innerHTML = `
+    <h2>Edit ${esc(item.name)}</h2>
+    <div class="tag-quantity-row">
+      <div class="field"><label>Quantity</label><input id="essEditQty" type="number" step="any" min="0" value="${item.quantity ?? ""}"></div>
+      <div class="field"><label>Unit</label><input id="essEditUnit" value="${esc(item.unit || "")}"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveEditEssential('${itemId}')">Save</button>
+    </div>
+  `;
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+async function saveEditEssential(itemId) {
+  const item = findItemById(itemId);
+  if (!item) return;
+
+  const qtyRaw = document.getElementById("essEditQty").value;
+  const quantity = qtyRaw === "" ? null : Number(qtyRaw);
+  const unit = document.getElementById("essEditUnit").value.trim() || null;
+
+  try {
+    await supabaseRequest("meal_plan_items", { method: "PATCH", query: `?id=eq.${itemId}`, body: { quantity, unit } });
+    item.quantity = quantity;
+    item.unit = unit;
+    closeModal();
+    renderWeek();
+  } catch (error) {
+    console.error(error);
+    alert("Couldn't save that change. Check the browser console for details.");
+  }
+}
 
 function itemThumbPlaceholder() {
   return `<div class="item-thumb cover-placeholder"><svg width="16" height="16" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
