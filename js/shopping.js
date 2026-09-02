@@ -120,7 +120,7 @@ async function loadIngredientContributions(recipeItems) {
 
   const [recipeIngredients, recipes] = await Promise.all([
     supabaseRequest("recipe_ingredients", {
-      query: `?select=recipe_id,ingredient_id,quantity,unit,ingredients(id,name,category,is_staple)&recipe_id=in.(${encoded})`
+      query: `?select=recipe_id,ingredient_id,quantity,unit,ingredients(id,name,category,is_staple,grams_per_ml)&recipe_id=in.(${encoded})`
     }),
     supabaseRequest("recipes", { query: `?select=id,servings&id=in.(${encoded})` })
   ]);
@@ -151,7 +151,8 @@ async function loadIngredientContributions(recipeItems) {
           unit,
           qtySum: 0,
           hasUnspecified: false,
-          isStaple: !!ri.ingredients.is_staple
+          isStaple: !!ri.ingredients.is_staple,
+          gramsPerMl: ri.ingredients.grams_per_ml || null
         };
       }
       if (ri.quantity !== null && ri.quantity !== undefined) {
@@ -195,19 +196,37 @@ async function loadFoodContributions(foodItems) {
 }
 
 function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
-  const pantryIngredientMap = {};
+  // Pantry entries are kept as a list per ingredient now, rather than
+  // collapsed by exact unit string — a row asking for "500g" needs to be
+  // able to draw on a pantry entry logged as "1kg", which requires
+  // actually converting rather than string-matching.
+  const pantryIngredientEntries = {}; // ingredientId -> [{ quantity, unit }]
   const pantryFoodMap = {};
   const trackedIngredientIds = new Set();
 
   pantryItems.forEach(p => {
     if (p.ingredient_id) {
       trackedIngredientIds.add(p.ingredient_id);
-      const key = `${p.ingredient_id}::${p.unit || ""}`;
-      pantryIngredientMap[key] = (pantryIngredientMap[key] || 0) + (p.quantity || 0);
+      if (!pantryIngredientEntries[p.ingredient_id]) pantryIngredientEntries[p.ingredient_id] = [];
+      pantryIngredientEntries[p.ingredient_id].push({ quantity: p.quantity || 0, unit: p.unit || "" });
     } else if (p.food_id) {
       pantryFoodMap[p.food_id] = (pantryFoodMap[p.food_id] || 0) + (p.quantity || 0);
     }
   });
+
+  // How much of `neededUnit` do we have for this ingredient, converting
+  // every pantry entry that can be converted and ignoring (not failing on)
+  // any that can't — e.g. a pantry entry logged as "1 tin" simply doesn't
+  // contribute toward a "200g" requirement, but a "1kg" entry does.
+  function getOwnedInUnit(ingredientId, neededUnit, gramsPerMl) {
+    const entries = pantryIngredientEntries[ingredientId] || [];
+    let total = 0;
+    entries.forEach(e => {
+      const converted = convertQuantity(e.quantity, e.unit, neededUnit, gramsPerMl);
+      if (converted !== null) total += converted;
+    });
+    return total;
+  }
 
   const buyRows = [];
   const coveredRows = [];
@@ -223,8 +242,7 @@ function applyPantry(ingredientRowsRaw, foodRowsRaw, pantryItems) {
       return;
     }
 
-    const key = `${row.ingredientId}::${row.unit}`;
-    const owned = pantryIngredientMap[key] || 0;
+    const owned = getOwnedInUnit(row.ingredientId, row.unit, row.gramsPerMl);
 
     if (row.qtySum > 0 && owned > 0) {
       const remaining = row.qtySum - owned;
