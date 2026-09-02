@@ -10,70 +10,92 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Savour — Shopping List</title>
+<title>Savour — Shop Mode</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
 <style>
   .icon-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
   .icon-btn:hover { background:var(--surface-2); border-color:var(--muted); }
-  .icon-btn.danger:hover { background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
   .toolbar-row { display:flex; align-items:center; gap:10px; }
-
   .week-nav-pill { display:flex; align-items:stretch; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
-  .week-nav-pill button { border:0; background:transparent; color:var(--text); padding:9px 18px; cursor:pointer; font-size:14px; font-family:var(--font-body); position:relative; display:flex; align-items:center; }
+  .week-nav-pill button { border:0; background:transparent; color:var(--text); padding:9px 18px; cursor:pointer; font-size:14px; font-family:var(--font-body); position:relative; }
   .week-nav-pill button:not(:last-child)::after { content:""; position:absolute; right:0; top:22%; bottom:22%; width:1px; background:var(--line); }
   .week-nav-pill button:hover { background:var(--surface-2); }
 
-  .shopping-stats { display:flex; border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-bottom:24px; background:var(--surface); flex-wrap:wrap; }
-  .shopping-stat { flex:1; min-width:110px; text-align:center; padding:16px 10px; position:relative; }
-  .shopping-stat:not(:last-child)::after { content:""; position:absolute; right:0; top:18%; bottom:18%; width:1px; background:var(--line); }
-  .shopping-stat-value { display:block; font-family:var(--font-display); font-size:24px; font-weight:600; }
-  .shopping-stat-label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-top:4px; }
-  .summary-note { color:var(--muted); font-size:12px; margin:-14px 0 20px; }
+  .big-deal-btn {
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    width:100%; padding:18px; margin:16px 0 22px;
+    background:var(--accent); color:#fff; border:0; border-radius:16px;
+    font-size:16px; font-weight:600; cursor:pointer; font-family:var(--font-body);
+  }
+  .big-deal-btn:hover { background:var(--accent-dark); }
 
-  .category { margin-bottom:22px; }
-  .category h3 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 10px; }
-  .category-card { padding:6px 0; }
-  .shop-row { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); }
-  .shop-row:last-child { border-bottom:0; }
-  .shop-row input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); flex-shrink:0; }
-  .shop-row.checked .shop-label { text-decoration:line-through; color:var(--muted); }
-  .shop-label { flex:1; font-size:14px; }
-  .shop-qty { color:var(--muted); font-size:13px; white-space:nowrap; }
-  .shop-price { color:var(--accent-dark); font-size:13px; font-weight:600; white-space:nowrap; }
+  .sm-summary { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .sm-summary-stat { flex:1; min-width:100px; text-align:center; padding:12px 8px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+  .sm-summary-value { display:block; font-family:var(--font-display); font-size:20px; font-weight:600; }
+  .sm-summary-label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-top:2px; }
+
+  .sm-category { margin-bottom:16px; }
+  .sm-category h3 { font-size:13px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin:0 0 8px; padding:0 4px; }
+  .sm-list { border:1px solid var(--line); border-radius:16px; overflow:hidden; background:var(--surface); }
+  .sm-item-row {
+    display:flex; align-items:center; gap:14px; padding:18px 16px;
+    border-bottom:1px solid var(--line); cursor:pointer;
+    -webkit-tap-highlight-color:transparent; user-select:none;
+  }
+  .sm-item-row:last-child { border-bottom:0; }
+  .sm-item-row:active { background:var(--surface-2); }
+  .sm-item-row.done { opacity:.5; }
+  .sm-item-row.done .sm-item-label { text-decoration:line-through; }
+  .sm-check { width:30px; height:30px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:transparent; }
+  .sm-item-row.done .sm-check { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .sm-item-body { flex:1; min-width:0; }
+  .sm-item-label { font-size:17px; font-weight:600; }
+  .sm-item-qty { font-size:13px; color:var(--muted); margin-top:2px; }
+  .sm-item-price { font-size:13px; color:var(--accent-dark); font-weight:600; white-space:nowrap; }
+
+  .sm-category.quiet h3 { color:var(--muted); }
+  .sm-category.quiet.covered h3 { color:var(--success); }
+  .sm-category.quiet.reminder h3 { color:var(--gold-dark); }
+  .sm-list.covered { background:var(--success-soft); border-color:var(--success-soft); }
+  .sm-list.covered .sm-item-row { border-bottom-color:rgba(0,0,0,.06); }
+  .sm-list.covered .sm-item-label { color:var(--success); }
+  .sm-list.reminder { background:var(--gold-soft); border-color:var(--gold-soft); }
+  .sm-list.reminder .sm-item-row { border-bottom-color:rgba(0,0,0,.06); }
+  .sm-list.reminder .sm-item-label { color:var(--gold-dark); }
+  .sm-list.quiet .sm-item-row { padding:12px 16px; cursor:default; }
+  .sm-list.quiet .sm-item-label { font-size:14px; font-weight:500; }
+
   .empty-state { color:var(--muted); padding:40px; text-align:center; }
-  .complete-shop-bar { margin-top:10px; text-align:center; }
 
-  /* Distinct treatment for the two non-actionable sections */
-  .category.covered h3 { color:var(--success); }
-  .category-card.covered { background:var(--success-soft); border-color:var(--success-soft); }
-  .category-card.covered .shop-row { border-bottom-color:rgba(0,0,0,.06); }
-  .category-card.covered .shop-label { color:var(--success); opacity:.85; }
+  /* Confirm-quantity modal */
+  .sm-qty-modal h2 { margin-bottom:2px; }
+  .sm-qty-need { color:var(--muted); font-size:14px; margin-bottom:24px; }
+  .sm-stepper { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:6px; }
+  .sm-stepper button { width:52px; height:52px; border-radius:50%; border:1px solid var(--line); background:var(--surface); font-size:24px; cursor:pointer; color:var(--text); flex-shrink:0; }
+  .sm-stepper button:hover { background:var(--surface-2); }
+  .sm-qty-input { width:120px; text-align:center; font-size:32px; font-family:var(--font-display); font-weight:600; border:0; background:transparent; padding:0; }
+  .sm-qty-unit-label { text-align:center; color:var(--muted); font-size:14px; margin-bottom:26px; }
+  .sm-qty-actions { display:flex; flex-direction:column; gap:10px; }
+  .sm-qty-actions .btn { width:100%; padding:14px; font-size:15px; }
 
-  .category.reminder h3 { color:var(--gold-dark); }
-  .category-card.reminder { background:var(--gold-soft); border-color:var(--gold-soft); }
-  .category-card.reminder .shop-row { border-bottom-color:rgba(0,0,0,.06); }
-  .category-card.reminder .shop-label { color:var(--gold-dark); }
-
+  /* Modal + deal-checker widget styling (shared markup, page-owned CSS,
+     same convention as every other modal-using page) */
   .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(43,38,32,.4); align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-backdrop.open { display:flex; }
-  .modal { width:min(560px,100%); max-height:90vh; overflow:auto; background:var(--surface); border-radius:20px; padding:24px; }
+  .modal { width:min(480px,100%); max-height:90vh; overflow:auto; background:var(--surface); border-radius:20px; padding:24px; }
   .modal h2 { margin-top:0; margin-bottom:4px; }
   .modal .meta { color:var(--muted); font-size:13px; margin-bottom:16px; }
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:15px; }
-  .mark-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); }
-  .mark-row:last-child { border-bottom:0; }
-  .mark-row-name { flex:1; font-size:14px; }
-  .mark-row input { width:90px; padding:8px; text-align:right; }
-  .mark-row-unit { width:50px; font-size:12px; color:var(--muted); }
-
-  /* Deal-check popup */
+  .field { margin-bottom:13px; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .field input { width:100%; box-sizing:border-box; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .field.full { grid-column:1/-1; }
   .type-toggle { display:flex; gap:8px; margin-bottom:14px; }
   .type-btn { flex:1; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:10px; padding:10px; cursor:pointer; font-size:14px; }
   .type-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:600; }
-  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .field.full { grid-column:1/-1; }
   .pick-options { max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
   .pick-option { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--line); }
   .pick-option:last-child { border-bottom:0; }
@@ -100,23 +122,15 @@
   .suggest-list li { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px; gap:10px; }
   .suggest-list li:last-child { border-bottom:0; }
   .suggest-sub { color:var(--muted); font-size:12px; }
-  @media(max-width:500px){ .form-grid{grid-template-columns:1fr} }
+
+  @media(max-width:500px){ .sm-summary-stat{min-width:80px;} .form-grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 
 <div class="section-head">
-  <h2 id="weekHeading">Shopping List</h2>
+  <h2 id="weekHeading">Shop Mode</h2>
   <div class="toolbar-row">
-    <button class="icon-btn" onclick="loadShoppingList()" title="Refresh" aria-label="Refresh">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
-    </button>
-    <button class="icon-btn danger" onclick="clearChecked()" title="Clear ticks" aria-label="Clear ticks">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
-    </button>
-    <button class="icon-btn" onclick="openDealCheckModal()" title="Check a deal" aria-label="Check a deal">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 12.6 12 21l-9-9V4h8l9.4 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/></svg>
-    </button>
     <div class="week-nav-pill">
       <button onclick="navigateWeek(-1)" title="Previous week" aria-label="Previous week">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
@@ -129,11 +143,13 @@
   </div>
 </div>
 
+<button class="big-deal-btn" onclick="openDealCheckModal()">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 12.6 12 21l-9-9V4h8l9.4 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/></svg>
+  Check a deal
+</button>
+
 <div id="summaryBar"></div>
 <div id="listContainer"></div>
-<div class="complete-shop-bar" id="completeShopBar" style="display:none;">
-  <button class="btn primary" style="border-radius:999px;" onclick="openCompleteShopModal()">Complete shop — add ticked items to pantry</button>
-</div>
 
 <div id="modalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
   <div id="modal" class="modal"></div>
@@ -146,6 +162,6 @@
 <script src="js/units.js"></script>
 <script src="js/shopping-data.js"></script>
 <script src="js/deal-checker-widget.js"></script>
-<script src="js/shopping.js"></script>
+<script src="js/shop-mode.js"></script>
 </body>
 </html>
