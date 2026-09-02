@@ -506,7 +506,6 @@ function renderEssentialItemRow(item) {
     : "";
   return `
     <div class="item-row">
-      ${itemThumbPlaceholder()}
       <div class="item-main">
         <div class="item-name">${esc(item.name)}${qtyLabel ? " — " + qtyLabel : ""}</div>
       </div>
